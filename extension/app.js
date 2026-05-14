@@ -338,80 +338,6 @@ function playCloseSound() {
 }
 
 /**
- * shootConfetti(x, y)
- *
- * Shoots a burst of colorful confetti particles from the given screen
- * coordinates (typically the center of a card being closed).
- * Pure CSS + JS, no libraries.
- */
-function shootConfetti(x, y) {
-  const colors = [
-    '#c8713a', // amber
-    '#e8a070', // amber light
-    '#5a7a62', // sage
-    '#8aaa92', // sage light
-    '#5a6b7a', // slate
-    '#8a9baa', // slate light
-    '#d4b896', // warm paper
-    '#b35a5a', // rose
-  ];
-
-  const particleCount = 17;
-
-  for (let i = 0; i < particleCount; i++) {
-    const el = document.createElement('div');
-
-    const isCircle = Math.random() > 0.5;
-    const size = 5 + Math.random() * 6; // 5–11px
-    const color = colors[Math.floor(Math.random() * colors.length)];
-
-    el.style.cssText = `
-      position: fixed;
-      left: ${x}px;
-      top: ${y}px;
-      width: ${size}px;
-      height: ${size}px;
-      background: ${color};
-      border-radius: ${isCircle ? '50%' : '2px'};
-      pointer-events: none;
-      z-index: 9999;
-      transform: translate(-50%, -50%);
-      opacity: 1;
-    `;
-    document.body.appendChild(el);
-
-    // Physics: random angle and speed for the outward burst
-    const angle   = Math.random() * Math.PI * 2;
-    const speed   = 60 + Math.random() * 120;
-    const vx      = Math.cos(angle) * speed;
-    const vy      = Math.sin(angle) * speed - 80; // bias upward
-    const gravity = 200;
-
-    const startTime = performance.now();
-    const duration  = 700 + Math.random() * 200; // 700–900ms
-
-    function frame(now) {
-      const elapsed  = (now - startTime) / 1000;
-      const progress = elapsed / (duration / 1000);
-
-      if (progress >= 1) { el.remove(); return; }
-
-      const px = vx * elapsed;
-      const py = vy * elapsed + 0.5 * gravity * elapsed * elapsed;
-      const opacity = progress < 0.5 ? 1 : 1 - (progress - 0.5) * 2;
-      const rotate  = elapsed * 200 * (isCircle ? 0 : 1);
-
-      el.style.transform = `translate(calc(-50% + ${px}px), calc(-50% + ${py}px)) rotate(${rotate}deg)`;
-      el.style.opacity = opacity;
-
-      requestAnimationFrame(frame);
-    }
-
-    requestAnimationFrame(frame);
-  }
-}
-
-/**
  * animateCardOut(card)
  *
  * Smoothly removes a mission card: fade + scale down, then confetti.
@@ -1188,6 +1114,12 @@ document.addEventListener('click', async (e) => {
 
   const action = actionEl.dataset.action;
 
+  // ---- Theme toggle ----
+  if (action === 'toggle-theme') {
+    await toggleTheme();
+    return;
+  }
+
   // ---- Close duplicate Tab Out tabs ----
   if (action === 'close-tabout-dupes') {
     await closeTabOutDupes();
@@ -1477,6 +1409,128 @@ document.addEventListener('input', async (e) => {
 
 
 /* ----------------------------------------------------------------
+   THEME — Dark/Light mode toggle with persistence
+   ---------------------------------------------------------------- */
+
+const THEME_STORAGE_KEY = 'theme';
+
+const MOON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>`;
+
+const SUN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" /></svg>`;
+
+function getSystemTheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.innerHTML = theme === 'dark' ? SUN_ICON : MOON_ICON;
+}
+
+async function initTheme() {
+  try {
+    const { [THEME_STORAGE_KEY]: saved } = await chrome.storage.local.get(THEME_STORAGE_KEY);
+    applyTheme(saved || getSystemTheme());
+  } catch {
+    applyTheme(getSystemTheme());
+  }
+}
+
+async function toggleTheme() {
+  const current = document.documentElement.dataset.theme || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try { await chrome.storage.local.set({ [THEME_STORAGE_KEY]: next }); } catch {}
+}
+
+/**
+ * shootConfetti(x, y)
+ *
+ * Shoots a burst of colorful confetti particles from the given screen
+ * coordinates. Colors adapt to the current theme for visibility.
+ */
+function shootConfetti(x, y) {
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  const colors = isDark
+    ? [
+        '#e8955a', // amber bright
+        '#f0b880', // amber light bright
+        '#7a9a82', // sage bright
+        '#a0c0a8', // sage light bright
+        '#7a8b9a', // slate bright
+        '#a0b0c0', // slate light bright
+        '#5a5048', // warm dark
+        '#d37a7a', // rose bright
+      ]
+    : [
+        '#c8713a', // amber
+        '#e8a070', // amber light
+        '#5a7a62', // sage
+        '#8aaa92', // sage light
+        '#5a6b7a', // slate
+        '#8a9baa', // slate light
+        '#d4b896', // warm paper
+        '#b35a5a', // rose
+      ];
+
+  const particleCount = 17;
+
+  for (let i = 0; i < particleCount; i++) {
+    const el = document.createElement('div');
+
+    const isCircle = Math.random() > 0.5;
+    const size = 5 + Math.random() * 6; // 5–11px
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    el.style.cssText = `
+      position: fixed;
+      left: ${x}px;
+      top: ${y}px;
+      width: ${size}px;
+      height: ${size}px;
+      background: ${color};
+      border-radius: ${isCircle ? '50%' : '2px'};
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      opacity: 1;
+    `;
+    document.body.appendChild(el);
+
+    // Physics: random angle and speed for the outward burst
+    const angle   = Math.random() * Math.PI * 2;
+    const speed   = 60 + Math.random() * 120;
+    const vx      = Math.cos(angle) * speed;
+    const vy      = Math.sin(angle) * speed - 80; // bias upward
+    const gravity = 200;
+
+    const startTime = performance.now();
+    const duration  = 700 + Math.random() * 200; // 700–900ms
+
+    function frame(now) {
+      const elapsed  = (now - startTime) / 1000;
+      const progress = elapsed / (duration / 1000);
+
+      if (progress >= 1) { el.remove(); return; }
+
+      const px = vx * elapsed;
+      const py = vy * elapsed + 0.5 * gravity * elapsed * elapsed;
+      const opacity = progress < 0.5 ? 1 : 1 - (progress - 0.5) * 2;
+      const rotate  = elapsed * 200 * (isCircle ? 0 : 1);
+
+      el.style.transform = `translate(calc(-50% + ${px}px), calc(-50% + ${py}px)) rotate(${rotate}deg)`;
+      el.style.opacity = opacity;
+
+      requestAnimationFrame(frame);
+    }
+
+    requestAnimationFrame(frame);
+  }
+}
+
+
+/* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
-renderDashboard();
+initTheme().then(() => renderDashboard());

@@ -30,6 +30,7 @@ The agent will walk you through it. Takes about 1 minute.
 - **Save for later** bookmark tabs to a checklist before closing them
 - **Localhost grouping** shows port numbers next to each tab so you can tell your vibe coding projects apart
 - **Expandable groups** show the first 8 tabs with a clickable "+N more"
+- **Dark mode** toggle in the header, with system preference detection and persistent setting
 - **100% local** your data never leaves your machine
 - **Pure Chrome extension** no server, no Node.js, no npm, no setup beyond loading the extension
 

@@ -20,6 +20,84 @@
   --shadow: rgba(26, 22, 19, 0.06);
 }
 
+/* ============================================================
+   DARK THEME
+   ============================================================ */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ---- Core tokens ---- */
+  --ink: #e8e2da;
+  --paper: #151210;
+  --warm-gray: #3a3530;
+  --muted: #8a8580;
+  --accent-amber: #e8955a;
+  --accent-sage: #7a9a82;
+  --accent-slate: #7a8b9a;
+  --accent-rose: #d37a7a;
+  --status-active: #5a9a6a;
+  --status-cooling: #d8a94e;
+  --status-abandoned: #d37a7a;
+  --card-bg: #1e1b17;
+  --shadow: rgba(0, 0, 0, 0.3);
+}
+
+/* Dark: paper texture — lighter noise on dark background */
+[data-theme="dark"] body::before {
+  opacity: 0.06;
+}
+
+/* Dark: banner backgrounds tuned for dark bg */
+[data-theme="dark"] .tab-cleanup-banner {
+  background: linear-gradient(135deg, rgba(232, 149, 90, 0.06), rgba(232, 149, 90, 0.12));
+  border-color: rgba(232, 149, 90, 0.22);
+}
+
+[data-theme="dark"] .tab-cleanup-icon {
+  background: rgba(232, 149, 90, 0.12);
+}
+
+[data-theme="dark"] .nudge-banner {
+  background: linear-gradient(135deg, rgba(211, 122, 122, 0.06), rgba(211, 122, 122, 0.12));
+  border-color: rgba(211, 122, 122, 0.2);
+}
+
+[data-theme="dark"] .nudge-icon {
+  background: rgba(211, 122, 122, 0.12);
+}
+
+/* Dark: empty checkmark glow */
+[data-theme="dark"] .empty-checkmark {
+  background: rgba(122, 154, 130, 0.12);
+  border-color: rgba(122, 154, 130, 0.35);
+  box-shadow: 0 0 0 8px rgba(122, 154, 130, 0.06),
+              0 0 0 16px rgba(122, 154, 130, 0.04);
+}
+
+/* Dark: update banner */
+[data-theme="dark"] .update-banner {
+  background: linear-gradient(135deg, rgba(122, 154, 130, 0.06), rgba(122, 154, 130, 0.12));
+  border-color: rgba(122, 154, 130, 0.25);
+}
+
+[data-theme="dark"] .update-banner-btn:hover {
+  background: #8aaa92; /* lighter sage for dark bg */
+}
+
+[data-theme="dark"] .update-banner-dismiss:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Dark: chip action hovers */
+[data-theme="dark"] .chip-action:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .page-chip.clickable:hover {
+  background: rgba(232, 149, 90, 0.06);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -79,6 +157,38 @@ header {
   font-weight: 400;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+
+/* ---- Theme toggle button ---- */
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--warm-gray);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.theme-toggle:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* ---- Tab cleanup banner ---- */
