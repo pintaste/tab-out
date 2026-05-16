@@ -1478,3 +1478,4 @@ body.no-entrance-anim .qa-bar {
 .auto-refresh-toggle.auto-refresh-disabled .auto-refresh-on { display: none; }
 .auto-refresh-toggle.auto-refresh-disabled .auto-refresh-off { display: block; }
 .auto-refresh-toggle.auto-refresh-disabled { color: var(--muted); opacity: 0.5; }
+.chip-window-badge { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-slate); background: rgba(90,107,122,0.1); padding: 1px 6px; border-radius: 3px; flex-shrink: 0; white-space: nowrap; }
