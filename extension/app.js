@@ -1921,6 +1921,100 @@ document.getElementById('privacySearchInput')?.addEventListener('keydown', (e) =
 });
 
 /* ----------------------------------------------------------------
+   AUTO-REFRESH — re-render when tabs change
+   With manual/auto toggle persisted to chrome.storage.local.
+   ---------------------------------------------------------------- */
+
+let _tabRefreshTimer = null;
+let _initialRenderDone = false;
+let _autoRefreshEnabled = true;
+
+async function initAutoRefresh() {
+  const { autoRefresh = true } = await chrome.storage.local.get('autoRefresh');
+  _autoRefreshEnabled = autoRefresh;
+  updateAutoRefreshUI();
+  if (_autoRefreshEnabled) bindTabListeners();
+}
+
+function updateAutoRefreshUI() {
+  const btn = document.getElementById('autoRefreshToggle');
+  if (!btn) return;
+  btn.title = _autoRefreshEnabled ? 'Auto-refresh on' : 'Auto-refresh off';
+  btn.classList.toggle('auto-refresh-disabled', !_autoRefreshEnabled);
+}
+
+async function toggleAutoRefresh() {
+  _autoRefreshEnabled = !_autoRefreshEnabled;
+  await chrome.storage.local.set({ autoRefresh: _autoRefreshEnabled });
+  updateAutoRefreshUI();
+  if (_autoRefreshEnabled) { bindTabListeners(); }
+  else { unbindTabListeners(); }
+}
+
+let _tabListenersBound = false;
+
+function bindTabListeners() {
+  if (_tabListenersBound || typeof chrome === 'undefined' || !chrome.tabs) return;
+  chrome.tabs.onCreated.addListener(scheduleRefresh);
+  chrome.tabs.onRemoved.addListener(scheduleRefresh);
+  chrome.tabs.onUpdated.addListener(onTabUpdated);
+  chrome.tabs.onActivated.addListener(onTabActivated);
+  _tabListenersBound = true;
+}
+
+function unbindTabListeners() {
+  if (!_tabListenersBound || typeof chrome === 'undefined' || !chrome.tabs) return;
+  chrome.tabs.onCreated.removeListener(scheduleRefresh);
+  chrome.tabs.onRemoved.removeListener(scheduleRefresh);
+  chrome.tabs.onUpdated.removeListener(onTabUpdated);
+  chrome.tabs.onActivated.removeListener(onTabActivated);
+  _tabListenersBound = false;
+}
+
+function onTabUpdated(_tabId, changeInfo) {
+  if (changeInfo.status === 'complete' || changeInfo.url) scheduleRefresh();
+}
+
+async function onTabActivated(activeInfo) {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab.url && tab.url.startsWith(new URL(chrome.runtime.getURL('index.html')).origin)) {
+      scheduleRefresh();
+    }
+  } catch { /* tab may have been closed */ }
+}
+
+function scheduleRefresh() {
+  if (_tabRefreshTimer) clearTimeout(_tabRefreshTimer);
+  _tabRefreshTimer = setTimeout(() => {
+    if (_initialRenderDone) document.body.classList.add('no-entrance-anim');
+    renderDashboard();
+  }, 300);
+}
+
+// Manual refresh handler — always works regardless of auto-refresh state
+document.addEventListener('click', async (e) => {
+  const actionEl = e.target.closest('[data-action]');
+
+  // ---- Refresh dashboard manually ----
+  if (actionEl && actionEl.dataset.action === 'refresh') {
+    const btn = document.getElementById('refreshBtn');
+    if (btn) btn.classList.add('spinning');
+    await renderDashboard();
+    if (btn) btn.classList.remove('spinning');
+    showToast('Refreshed');
+    return;
+  }
+
+  // ---- Toggle auto-refresh ----
+  if (actionEl && actionEl.dataset.action === 'toggle-auto-refresh') {
+    await toggleAutoRefresh();
+    showToast(_autoRefreshEnabled ? 'Auto-refresh on' : 'Auto-refresh off');
+    return;
+  }
+});
+
+/* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
 
@@ -1930,4 +2024,6 @@ document.addEventListener('error', (e) => {
   }
 }, true);
 
-initPrivacyMode().then(() => initTheme()).then(() => renderDashboard());
+initPrivacyMode().then(() => initTheme()).then(() => initAutoRefresh()).then(() => renderDashboard()).then(() => {
+  _initialRenderDone = true;
+});

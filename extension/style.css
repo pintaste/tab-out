@@ -1410,3 +1410,71 @@ body.privacy-mode .privacy-screen { display: flex !important; }
 .qa-bar-add { color: var(--muted); border-style: dashed; background: transparent; }
 .qa-bar-add svg { width: 16px; height: 16px; }
 .qa-bar-add:hover { color: var(--accent-amber); border-style: solid; background: var(--paper); }
+/* ================================================================
+   REFRESH + AUTO-REFRESH
+   ================================================================ */
+
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--warm-gray);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+  margin-right: 8px;
+}
+.refresh-btn svg { width: 16px; height: 16px; }
+.refresh-btn:hover { border-color: var(--ink); color: var(--ink); background: var(--paper); }
+.refresh-btn.spinning svg { animation: spin 0.5s linear; }
+
+.auto-refresh-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--warm-gray);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+  margin-right: 8px;
+}
+.auto-refresh-toggle svg { width: 16px; height: 16px; }
+.auto-refresh-toggle:hover { border-color: var(--ink); color: var(--ink); background: var(--paper); }
+.auto-refresh-on { display: block; }
+.auto-refresh-off { display: none; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+body.no-entrance-anim header,
+body.no-entrance-anim .tab-cleanup-banner,
+body.no-entrance-anim .privacy-screen,
+body.no-entrance-anim .nudge-banner,
+body.no-entrance-anim .active-section .section-header,
+body.no-entrance-anim .active-section .missions .mission-card,
+body.no-entrance-anim .abandoned-section .section-header,
+body.no-entrance-anim .abandoned-section .missions .mission-card,
+body.no-entrance-anim footer,
+body.no-entrance-anim .deferred-list .deferred-item,
+body.no-entrance-anim .deferred-column .section-header,
+body.no-entrance-anim .missions-search-empty,
+body.no-entrance-anim .qa-bar {
+  animation: none !important;
+}
+.auto-refresh-toggle .auto-refresh-on { display: block; }
+.auto-refresh-toggle .auto-refresh-off { display: none; }
+.auto-refresh-toggle.auto-refresh-disabled .auto-refresh-on { display: none; }
+.auto-refresh-toggle.auto-refresh-disabled .auto-refresh-off { display: block; }
+.auto-refresh-toggle.auto-refresh-disabled { color: var(--muted); opacity: 0.5; }
