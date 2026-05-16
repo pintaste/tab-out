@@ -1327,3 +1327,23 @@ body.privacy-mode .privacy-screen { display: flex !important; }
 .privacy-setting-sub { margin-left: 24px; margin-bottom: 4px; }
 .privacy-setting-input { width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--warm-gray); border-radius: 4px; background: var(--paper); color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; }
 .privacy-setting-input:focus { border-color: var(--accent-amber); }
+/* ================================================================
+   ARCHIVE DISMISS
+   ================================================================ */
+
+.archive-item-dismiss {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.archive-item-dismiss svg { width: 12px; height: 12px; }
+.archive-item:hover .archive-item-dismiss { opacity: 0.5; }
+.archive-item-dismiss:hover { opacity: 1 !important; color: var(--status-abandoned); }
