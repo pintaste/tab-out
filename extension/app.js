@@ -1531,6 +1531,146 @@ function shootConfetti(x, y) {
 
 
 /* ----------------------------------------------------------------
+   PRIVACY MODE — clock + search overlay for screen sharing
+   ---------------------------------------------------------------- */
+
+const PRIVACY_DEFAULTS = {
+  clock: true,
+  date: true,
+  motto: true,
+  search: true,
+  mottoText: '',
+};
+
+let privacyClockInterval = null;
+
+async function getPrivacyMode() {
+  const { privacyMode = false } = await chrome.storage.local.get('privacyMode');
+  return privacyMode;
+}
+
+async function getPrivacySettings() {
+  const { privacySettings = {} } = await chrome.storage.local.get('privacySettings');
+  return { ...PRIVACY_DEFAULTS, ...privacySettings };
+}
+
+async function savePrivacySettings(settings) {
+  await chrome.storage.local.set({ privacySettings: settings });
+}
+
+function setPrivacyMode(enabled) {
+  if (enabled) {
+    document.body.classList.add('privacy-mode');
+  } else {
+    document.body.classList.remove('privacy-mode');
+  }
+  applyPrivacyWidgets();
+  if (enabled) {
+    startPrivacyClock();
+  } else {
+    stopPrivacyClock();
+  }
+}
+
+async function applyPrivacyWidgets() {
+  const settings = await getPrivacySettings();
+  document.getElementById('privacyTime').style.display = settings.clock ? '' : 'none';
+  document.getElementById('privacyDate').style.display = settings.date ? '' : 'none';
+  document.getElementById('privacyMotto').style.display = settings.motto ? '' : 'none';
+  document.getElementById('privacySearch').style.display = settings.search ? 'flex' : 'none';
+  document.getElementById('psClock').checked = settings.clock;
+  document.getElementById('psDate').checked = settings.date;
+  document.getElementById('psMotto').checked = settings.motto;
+  document.getElementById('psSearch').checked = settings.search;
+  document.getElementById('psMottoInput').value = settings.mottoText || '';
+  document.getElementById('psMottoEdit').style.display = settings.motto ? '' : 'none';
+  const mottoEl = document.getElementById('privacyMotto');
+  if (mottoEl) mottoEl.textContent = settings.mottoText || '';
+}
+
+function updatePrivacyClock() {
+  const now = new Date();
+  const timeEl = document.getElementById('privacyTime');
+  const dateEl = document.getElementById('privacyDate');
+  if (timeEl) timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function startPrivacyClock() {
+  updatePrivacyClock();
+  if (!privacyClockInterval) privacyClockInterval = setInterval(updatePrivacyClock, 1000);
+}
+
+function stopPrivacyClock() {
+  if (privacyClockInterval) { clearInterval(privacyClockInterval); privacyClockInterval = null; }
+}
+
+async function togglePrivacyMode() {
+  const current = document.body.classList.contains('privacy-mode');
+  await setPrivacyMode(!current);
+  await chrome.storage.local.set({ privacyMode: !current });
+}
+
+async function initPrivacyMode() {
+  const mode = await getPrivacyMode();
+  await setPrivacyMode(mode);
+}
+
+document.getElementById('privacyToggle')?.addEventListener('click', togglePrivacyMode);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const ae = document.activeElement;
+    if (ae && (ae.id === 'privacySearchInput' || ae.id === 'psMottoInput')) return;
+    if (document.body.classList.contains('privacy-mode')) togglePrivacyMode();
+  }
+});
+
+document.getElementById('privacySettingsBtn')?.addEventListener('click', () => {
+  const panel = document.getElementById('privacySettings');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+});
+
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('privacySettings');
+  const btn = document.getElementById('privacySettingsBtn');
+  if (!panel || panel.style.display === 'none') return;
+  if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+
+for (const id of ['psClock', 'psDate', 'psMotto', 'psSearch']) {
+  document.getElementById(id)?.addEventListener('change', async () => {
+    const settings = await getPrivacySettings();
+    settings[id.replace('ps', '').toLowerCase()] = document.getElementById(id).checked;
+    await savePrivacySettings(settings);
+    applyPrivacyWidgets();
+  });
+}
+
+const psMottoInput = document.getElementById('psMottoInput');
+if (psMottoInput) {
+  psMottoInput.addEventListener('blur', async () => {
+    const settings = await getPrivacySettings();
+    settings.mottoText = psMottoInput.value;
+    await savePrivacySettings(settings);
+    applyPrivacyWidgets();
+  });
+  psMottoInput.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); psMottoInput.blur(); }
+  });
+}
+
+document.getElementById('privacySearchInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const q = encodeURIComponent(e.target.value.trim());
+    if (q) window.location.href = `https://www.google.com/search?q=${q}`;
+  }
+});
+
+/* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
-initTheme().then(() => renderDashboard());
+initPrivacyMode().then(() => initTheme()).then(() => renderDashboard());
