@@ -120,7 +120,7 @@ async function closeTabsExact(urls) {
  * then hostname fallback). Also brings the window to the front.
  */
 async function focusTab(url) {
-  if (!url) return;
+  if (!url) return false;
   const allTabs = await chrome.tabs.query({});
   const currentWindow = await chrome.windows.getCurrent();
 
@@ -138,12 +138,13 @@ async function focusTab(url) {
     } catch {}
   }
 
-  if (matches.length === 0) return;
+  if (matches.length === 0) return false;
 
   // Prefer a match in a different window so it actually switches windows
   const match = matches.find(t => t.windowId !== currentWindow.id) || matches[0];
   await chrome.tabs.update(match.id, { active: true });
   await chrome.windows.update(match.windowId, { focused: true });
+  return true;
 }
 
 /**
@@ -275,18 +276,59 @@ async function checkOffSavedTab(id) {
 
 /**
  * dismissSavedTab(id)
- *
- * Marks a saved tab as dismissed (removed from all lists).
  */
 async function dismissSavedTab(id) {
   const { deferred = [] } = await chrome.storage.local.get('deferred');
   const tab = deferred.find(t => t.id === id);
-  if (tab) {
-    tab.dismissed = true;
-    await chrome.storage.local.set({ deferred });
-  }
+  if (tab) { tab.dismissed = true; await chrome.storage.local.set({ deferred }); }
 }
 
+/* ----------------------------------------------------------------
+   QUICK ACCESS
+   ---------------------------------------------------------------- */
+
+const QUICK_ACCESS_DEFAULTS = [
+  { url: 'https://mail.google.com/mail/u/0/#inbox', label: 'Gmail' },
+  { url: 'https://x.com/home', label: 'X' },
+  { url: 'https://github.com/', label: 'GitHub' },
+  { url: 'https://claude.ai/', label: 'Claude' },
+  { url: 'https://chatgpt.com/', label: 'ChatGPT' },
+];
+
+async function getQuickAccess() {
+  const stored = await chrome.storage.local.get('quickAccess');
+  if (stored.quickAccess === undefined) {
+    const seeded = QUICK_ACCESS_DEFAULTS.map((s, i) => ({ id: (Date.now() + i).toString(), url: s.url, label: s.label }));
+    await chrome.storage.local.set({ quickAccess: seeded });
+    return seeded;
+  }
+  return stored.quickAccess;
+}
+
+async function addQuickAccess({ url, label }) {
+  if (!url) return;
+  let parsed; try { parsed = new URL(url); } catch { return; }
+  const finalLabel = (label && label.trim()) || friendlyDomain(parsed.hostname) || parsed.hostname;
+  const { quickAccess = [] } = await chrome.storage.local.get('quickAccess');
+  quickAccess.push({ id: Date.now().toString(), url: parsed.href, label: finalLabel });
+  await chrome.storage.local.set({ quickAccess });
+}
+
+async function removeQuickAccess(id) {
+  const { quickAccess = [] } = await chrome.storage.local.get('quickAccess');
+  await chrome.storage.local.set({ quickAccess: quickAccess.filter(s => s.id !== id) });
+}
+
+async function getQuickAccessMode() {
+  const { quickAccessMode = 'card' } = await chrome.storage.local.get('quickAccessMode');
+  return quickAccessMode === 'bar' ? 'bar' : 'card';
+}
+
+async function toggleQuickAccessMode() {
+  const next = await getQuickAccessMode() === 'card' ? 'bar' : 'card';
+  await chrome.storage.local.set({ quickAccessMode: next });
+  return next;
+}
 
 /* ----------------------------------------------------------------
    UI HELPERS
@@ -957,6 +999,65 @@ function renderArchiveItem(item) {
 
 
 /* ----------------------------------------------------------------
+   QUICK ACCESS — Renderer
+   ---------------------------------------------------------------- */
+
+function quickAccessFaviconUrls(url) {
+  let hostname = '', origin = '';
+  try { const u = new URL(url); hostname = u.hostname; origin = u.origin; } catch {}
+  return { primary: origin ? origin + '/favicon.ico' : '', fallback: hostname ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(hostname) + '&sz=64' : '' };
+}
+
+const QUICK_ACCESS_MODE_ICONS = {
+  toBar: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/></svg>',
+  toCard: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25A2.25 2.25 0 0 1 8.25 10.5H6A2.25 2.25 0 0 1 3.75 8.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25A2.25 2.25 0 0 1 13.5 8.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg>',
+};
+
+async function renderQuickAccess() {
+  const host = document.getElementById('quickAccessContainer');
+  if (!host) return;
+  const shortcuts = await getQuickAccess();
+  if (shortcuts.length === 0) { host.style.display = 'none'; return; }
+  const mode = await getQuickAccessMode();
+  host.innerHTML = mode === 'bar' ? renderQuickAccessBarHTML(shortcuts) : renderQuickAccessCardHTML(shortcuts);
+  host.style.display = 'block';
+  host.querySelectorAll('.qa-favicon').forEach(img => {
+    let triedFallback = false;
+    img.addEventListener('error', () => {
+      const fallback = img.dataset.fallbackSrc;
+      if (!triedFallback && fallback && fallback !== img.src) { triedFallback = true; img.src = fallback; return; }
+      img.style.display = 'none';
+    });
+  });
+}
+
+function renderQuickAccessCardHTML(shortcuts) {
+  const chips = shortcuts.map(s => {
+    const { primary, fallback } = quickAccessFaviconUrls(s.url);
+    const safeUrl = (s.url || '').replace(/"/g, '&quot;');
+    const safeLabel = (s.label || '').replace(/"/g, '&quot;');
+    return '<div class="page-chip clickable" data-action="open-shortcut" data-shortcut-url="' + safeUrl + '" title="' + safeLabel + '">' +
+      (primary ? '<img class="chip-favicon qa-favicon" src="' + primary + '" data-fallback-src="' + fallback.replace(/"/g, '&quot;') + '" alt="">' : '') +
+      '<span class="chip-text">' + safeLabel + '</span>' +
+      '<div class="chip-actions"><button class="chip-action chip-close" data-action="remove-shortcut" data-shortcut-id="' + s.id + '" title="Remove shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button></div></div>';
+  }).join('');
+  return '<div class="missions qa-card-wrap"><div class="mission-card domain-card has-neutral-bar" id="quickAccessCard"><div class="status-bar"></div><div class="mission-content"><div class="mission-top"><span class="mission-name">Quick access</span><span class="open-tabs-badge">' + ICONS.tabs + ' ' + shortcuts.length + ' shortcut' + (shortcuts.length !== 1 ? 's' : '') + '</span><button class="qa-mode-toggle" data-action="toggle-quick-access-mode" title="Switch to compact view">' + QUICK_ACCESS_MODE_ICONS.toBar + '</button></div><div class="mission-pages">' + chips + '</div><div class="actions" id="quickAccessActions"><button class="action-btn" data-action="start-add-shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg> Add shortcut</button></div></div></div></div>';
+}
+
+function renderQuickAccessBarHTML(shortcuts) {
+  const buttons = shortcuts.map(s => {
+    const { primary, fallback } = quickAccessFaviconUrls(s.url);
+    const safeUrl = (s.url || '').replace(/"/g, '&quot;');
+    const safeLabel = (s.label || '').replace(/"/g, '&quot;');
+    return '<button class="qa-bar-btn" data-action="open-shortcut" data-shortcut-url="' + safeUrl + '" title="' + safeLabel + '">' +
+      (primary ? '<img class="qa-favicon" src="' + primary + '" data-fallback-src="' + fallback.replace(/"/g, '&quot;') + '" alt="">' : '') +
+      '<span class="qa-bar-initial"' + (primary ? ' hidden' : '') + '>' + (safeLabel.charAt(0) || '?').toUpperCase() + '</span>' +
+      '<span class="qa-bar-remove" data-action="remove-shortcut" data-shortcut-id="' + s.id + '" title="Remove shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></span></button>';
+  }).join('');
+  return '<div class="qa-bar">' + buttons + '<button class="qa-bar-add" data-action="start-add-shortcut" title="Add shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg></button><div class="qa-bar-spacer"></div><button class="qa-mode-toggle" data-action="toggle-quick-access-mode" title="Switch to card view">' + QUICK_ACCESS_MODE_ICONS.toCard + '</button></div>';
+}
+
+/* ----------------------------------------------------------------
    MAIN DASHBOARD RENDERER
    ---------------------------------------------------------------- */
 
@@ -1123,6 +1224,7 @@ async function renderStaticDashboard() {
 
   // --- Check for duplicate Tab Out tabs ---
   checkTabOutDupes();
+  await renderQuickAccess();
 
   // --- Render "Saved for Later" column ---
   await renderDeferredColumn();
@@ -1413,6 +1515,54 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  // ---- Open a quick-access shortcut ----
+  if (action === 'open-shortcut') {
+    const url = actionEl.dataset.shortcutUrl;
+    if (!url) return;
+    const focused = await focusTab(url);
+    if (!focused) {
+      try {
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (currentTab) await chrome.tabs.update(currentTab.id, { url });
+        else window.location.href = url;
+      } catch { window.location.href = url; }
+    }
+    return;
+  }
+
+  if (action === 'remove-shortcut') {
+    e.stopPropagation();
+    await removeQuickAccess(actionEl.dataset.shortcutId);
+    const holder = actionEl.closest('.page-chip, .qa-bar-btn');
+    if (holder) {
+      holder.style.transition = 'opacity 0.15s, transform 0.15s';
+      holder.style.opacity = '0'; holder.style.transform = 'scale(0.85)';
+      setTimeout(() => renderQuickAccess(), 160);
+    } else { await renderQuickAccess(); }
+    return;
+  }
+
+  if (action === 'toggle-quick-access-mode') { await toggleQuickAccessMode(); await renderQuickAccess(); return; }
+
+  if (action === 'start-add-shortcut') {
+    const host = document.getElementById('quickAccessContainer');
+    if (!host) return;
+    const existing = host.querySelector('.quick-access-input');
+    if (existing) { existing.focus(); return; }
+    const actionsArea = document.getElementById('quickAccessActions');
+    if (actionsArea) {
+      actionsArea.innerHTML = '<input type="url" class="quick-access-input" placeholder="https://…" autocomplete="off" spellcheck="false">';
+    } else {
+      const input = document.createElement('input');
+      input.type = 'url'; input.className = 'quick-access-input quick-access-input-bar';
+      input.placeholder = 'https://…'; input.autocomplete = 'off'; input.spellcheck = false;
+      actionEl.replaceWith(input);
+    }
+    const input = host.querySelector('.quick-access-input');
+    if (input) input.focus();
+    return;
+  }
+
   // ---- Close ALL open tabs ----
   if (action === 'close-all-open-tabs') {
     const allUrls = openTabs
@@ -1445,6 +1595,26 @@ document.addEventListener('click', (e) => {
     body.style.display = body.style.display === 'none' ? 'block' : 'none';
   }
 });
+
+// ---- Quick-access input handlers ----
+document.addEventListener('keydown', async (e) => {
+  if (!e.target.classList || !e.target.classList.contains('quick-access-input')) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const raw = e.target.value.trim();
+    if (!raw) { await renderQuickAccess(); return; }
+    const url = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+    try { new URL(url); } catch { showToast('Invalid URL'); return; }
+    await addQuickAccess({ url });
+    await renderQuickAccess();
+    showToast('Shortcut added');
+  } else if (e.key === 'Escape') { e.preventDefault(); renderQuickAccess(); }
+});
+
+document.addEventListener('blur', (e) => {
+  if (!e.target.classList || !e.target.classList.contains('quick-access-input')) return;
+  setTimeout(() => { const stillThere = document.querySelector('.quick-access-input'); if (stillThere && stillThere === e.target) renderQuickAccess(); }, 150);
+}, true);
 
 // ---- Archive search — filter archived items as user types ----
 document.addEventListener('input', async (e) => {
