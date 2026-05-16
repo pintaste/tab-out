@@ -412,15 +412,58 @@ function animateCardOut(card) {
 }
 
 /**
- * showToast(message)
+ * undoClose — save URLs before closing so they can be restored
+ */
+let _lastClosedUrls = [];
+let _lastClosedToastTimer = null;
+
+function captureClosedTabs(urls) {
+  _lastClosedUrls = urls.filter(Boolean);
+}
+
+async function undoLastClose() {
+  if (_lastClosedUrls.length === 0) return;
+  const urls = [..._lastClosedUrls];
+  _lastClosedUrls = [];
+  for (const url of urls) {
+    try { await chrome.tabs.create({ url, active: false }); } catch {}
+  }
+  await fetchOpenTabs();
+  renderDashboard();
+  showToast(urls.length === 1 ? 'Tab restored' : `${urls.length} tabs restored`);
+}
+
+/**
+ * showToast(message, { undo } = {})
  *
  * Brief pop-up notification at the bottom of the screen.
+ * If `undo` is true, shows an "Undo" button that calls undoLastClose.
  */
-function showToast(message) {
+function showToast(message, opts = {}) {
   const toast = document.getElementById('toast');
-  document.getElementById('toastText').textContent = message;
+  const textEl = document.getElementById('toastText');
+  const undoBtn = document.getElementById('toastUndo');
+  textEl.textContent = message;
+
+  if (_lastClosedToastTimer) clearTimeout(_lastClosedToastTimer);
+
+  if (opts.undo && _lastClosedUrls.length > 0) {
+    undoBtn.style.display = '';
+    undoBtn.onclick = async () => {
+      await undoLastClose();
+      toast.classList.remove('visible');
+      undoBtn.style.display = 'none';
+    };
+  } else {
+    undoBtn.style.display = 'none';
+  }
+
   toast.classList.add('visible');
-  setTimeout(() => toast.classList.remove('visible'), 2500);
+  _lastClosedToastTimer = setTimeout(() => {
+    toast.classList.remove('visible');
+    _lastClosedUrls = [];
+    if (undoBtn) undoBtn.style.display = 'none';
+  }, 4000);
 }
 
 /**
@@ -1368,6 +1411,8 @@ document.addEventListener('click', async (e) => {
     const tabUrl = actionEl.dataset.tabUrl;
     if (!tabUrl) return;
 
+    captureClosedTabs([tabUrl]);
+
     // Close the tab in Chrome directly
     const allTabs = await chrome.tabs.query({});
     const match   = allTabs.find(t => t.url === tabUrl);
@@ -1401,7 +1446,7 @@ document.addEventListener('click', async (e) => {
     const statTabs = document.getElementById('statTabs');
     if (statTabs) statTabs.textContent = getRealTabs().length;
 
-    showToast('Tab closed');
+    showToast('Tab closed', { undo: true });
     return;
   }
 
@@ -1509,6 +1554,8 @@ document.addEventListener('click', async (e) => {
     // must use exact URL matching to avoid closing unrelated tabs
     const useExact  = group.domain === '__landing-pages__' || !!group.label;
 
+    captureClosedTabs(urls);
+
     if (useExact) {
       await closeTabsExact(urls);
     } else {
@@ -1525,7 +1572,7 @@ document.addEventListener('click', async (e) => {
     if (idx !== -1) domainGroups.splice(idx, 1);
 
     const groupLabel = group.domain === '__landing-pages__' ? 'Homepages' : (group.label || friendlyDomain(group.domain));
-    showToast(`Closed ${urls.length} tab${urls.length !== 1 ? 's' : ''} from ${groupLabel}`);
+    showToast(`Closed ${urls.length} tab${urls.length !== 1 ? 's' : ''} from ${groupLabel}`, { undo: true });
 
     const statTabs = document.getElementById('statTabs');
     if (statTabs) statTabs.textContent = getRealTabs().length;
@@ -1637,6 +1684,7 @@ document.addEventListener('click', async (e) => {
     const allUrls = openTabs
       .filter(t => t.url && !t.url.startsWith('chrome') && !t.url.startsWith('about:'))
       .map(t => t.url);
+    captureClosedTabs(allUrls);
     await closeTabsByUrls(allUrls);
     playCloseSound();
 
@@ -1648,7 +1696,7 @@ document.addEventListener('click', async (e) => {
       animateCardOut(c);
     });
 
-    showToast('All tabs closed. Fresh start.');
+    showToast('All tabs closed. Fresh start.', { undo: true });
     return;
   }
 });
