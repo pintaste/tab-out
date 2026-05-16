@@ -60,6 +60,27 @@ async function updateBadge() {
   }
 }
 
+// ─── Single-instance enforcement ──────────────────────────────────────────────
+
+function isTabOutUrl(url) {
+  if (!url) return false;
+  return url === 'chrome-extension://' + chrome.runtime.id + '/index.html' || url === 'chrome://newtab/';
+}
+
+let enforceInFlight = false;
+
+async function enforceSingleTabOut(keepTabId) {
+  if (enforceInFlight) return;
+  enforceInFlight = true;
+  try {
+    const allTabs = await chrome.tabs.query({});
+    const tabOutTabs = allTabs.filter(t => isTabOutUrl(t.url) || isTabOutUrl(t.pendingUrl));
+    if (tabOutTabs.length <= 1) return;
+    const toClose = tabOutTabs.filter(t => t.id !== keepTabId).map(t => t.id);
+    if (toClose.length > 0) await chrome.tabs.remove(toClose);
+  } catch {} finally { enforceInFlight = false; }
+}
+
 // ─── Event listeners ──────────────────────────────────────────────────────────
 
 // Update badge when the extension is first installed
@@ -73,18 +94,18 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 // Update badge whenever a tab is opened
-chrome.tabs.onCreated.addListener(() => {
+chrome.tabs.onCreated.addListener(tab => {
   updateBadge();
+  if (isTabOutUrl(tab.url) || isTabOutUrl(tab.pendingUrl)) enforceSingleTabOut(tab.id);
 });
 
 // Update badge whenever a tab is closed
-chrome.tabs.onRemoved.addListener(() => {
-  updateBadge();
-});
+chrome.tabs.onRemoved.addListener(() => updateBadge());
 
-// Update badge when a tab's URL changes (e.g. navigating to/from chrome://)
-chrome.tabs.onUpdated.addListener(() => {
+// Update badge when a tab's URL changes
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   updateBadge();
+  if (changeInfo.url && isTabOutUrl(changeInfo.url)) enforceSingleTabOut(tabId);
 });
 
 // ─── Initial run ─────────────────────────────────────────────────────────────

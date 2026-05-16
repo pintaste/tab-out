@@ -26,6 +26,9 @@
 // All open tabs — populated by fetchOpenTabs()
 let openTabs = [];
 
+let searchQuery = '';
+let tabSearchInitialized = false;
+
 /**
  * fetchOpenTabs()
  *
@@ -40,11 +43,12 @@ async function fetchOpenTabs() {
 
     const tabs = await chrome.tabs.query({});
     openTabs = tabs.map(t => ({
-      id:       t.id,
-      url:      t.url,
-      title:    t.title,
-      windowId: t.windowId,
-      active:   t.active,
+      id:         t.id,
+      url:        t.url,
+      title:      t.title,
+      favIconUrl: t.favIconUrl || '',
+      windowId:   t.windowId,
+      active:     t.active,
       // Flag Tab Out's own pages so we can detect duplicate new tabs
       isTabOut: t.url === newtabUrl || t.url === 'chrome://newtab/',
     }));
@@ -396,6 +400,19 @@ function checkAndShowEmptyState() {
   if (countEl) countEl.textContent = '0 domains';
 }
 
+function matchTabBySearch(tab, query) {
+  if (!query) return true;
+  return (tab.title || '').toLowerCase().includes(query) || (tab.url || '').toLowerCase().includes(query);
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function getSearchEmptyStateHTML(rawQuery) {
+  return '<div class="missions-search-empty">No tabs match <strong>&quot;' + escapeHtml(rawQuery) + '&quot;</strong></div>';
+}
+
 /**
  * timeAgo(dateStr)
  *
@@ -618,6 +635,16 @@ function smartTitle(title, url) {
 }
 
 
+function faviconSrc(tab) {
+  if (!tab) return '';
+  if (tab.favIconUrl && !tab.favIconUrl.startsWith('chrome://')) return tab.favIconUrl;
+  try {
+    const { hostname } = new URL(tab.url || '');
+    if (!hostname) return '';
+    return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(hostname) + '&sz=32';
+  } catch { return ''; }
+}
+
 /* ----------------------------------------------------------------
    SVG ICON STRINGS
    ---------------------------------------------------------------- */
@@ -691,11 +718,9 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
     const chipClass = count > 1 ? ' chip-has-dupes' : '';
     const safeUrl   = (tab.url || '').replace(/"/g, '&quot;');
     const safeTitle = label.replace(/"/g, '&quot;');
-    let domain = '';
-    try { domain = new URL(tab.url).hostname; } catch {}
-    const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : '';
+    const faviconUrl = faviconSrc(tab);
     return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
-      ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
+      ${faviconUrl ? `<img class="chip-favicon chip-favicon--hide-on-error" src="${faviconUrl}" alt="">` : ''}
       <span class="chip-text">${label}</span>${dupeTag}
       <div class="chip-actions">
         <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Save for later">
@@ -772,11 +797,9 @@ function renderDomainCard(group) {
     const chipClass = count > 1 ? ' chip-has-dupes' : '';
     const safeUrl   = (tab.url || '').replace(/"/g, '&quot;');
     const safeTitle = label.replace(/"/g, '&quot;');
-    let domain = '';
-    try { domain = new URL(tab.url).hostname; } catch {}
-    const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : '';
+    const faviconUrl = faviconSrc(tab);
     return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
-      ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">` : ''}
+      ${faviconUrl ? `<img class="chip-favicon chip-favicon--hide-on-error" src="${faviconUrl}" alt="">` : ''}
       <span class="chip-text">${label}</span>${dupeTag}
       <div class="chip-actions">
         <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="Save for later">
@@ -892,7 +915,7 @@ async function renderDeferredColumn() {
 function renderDeferredItem(item) {
   let domain = '';
   try { domain = new URL(item.url).hostname.replace(/^www\./, ''); } catch {}
-  const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=16`;
+  const faviconUrl = faviconSrc(item);
   const ago = timeAgo(item.savedAt);
 
   return `
@@ -900,7 +923,7 @@ function renderDeferredItem(item) {
       <input type="checkbox" class="deferred-checkbox" data-action="check-deferred" data-deferred-id="${item.id}">
       <div class="deferred-info">
         <a href="${item.url}" target="_blank" rel="noopener" class="deferred-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
-          <img src="${faviconUrl}" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" onerror="this.style.display='none'">${item.title || item.url}
+          ${faviconUrl ? '<img class="chip-favicon chip-favicon--hide-on-error" src="' + faviconUrl + '" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px">' : ''}${item.title || item.url}
         </a>
         <div class="deferred-meta">
           <span>${domain}</span>
@@ -957,7 +980,10 @@ async function renderStaticDashboard() {
 
   // --- Fetch tabs ---
   await fetchOpenTabs();
-  const realTabs = getRealTabs();
+  let realTabs = getRealTabs();
+
+  const totalBeforeFilter = realTabs.length;
+  if (searchQuery) realTabs = realTabs.filter(t => matchTabBySearch(t, searchQuery));
 
   // --- Group tabs by domain ---
   // Landing pages (Gmail inbox, Twitter home, etc.) get their own special group
@@ -1082,6 +1108,11 @@ async function renderStaticDashboard() {
     openTabsSectionCount.innerHTML = `${domainGroups.length} domain${domainGroups.length !== 1 ? 's' : ''} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} Close all ${realTabs.length} tabs</button>`;
     openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
     openTabsSection.style.display = 'block';
+  } else if (searchQuery !== '' && totalBeforeFilter > 0 && domainGroups.length === 0 && openTabsSection) {
+    if (openTabsSectionTitle) openTabsSectionTitle.textContent = 'Open tabs';
+    openTabsSectionCount.innerHTML = '';
+    openTabsMissionsEl.innerHTML = getSearchEmptyStateHTML(document.getElementById('tabSearchInput')?.value ?? searchQuery);
+    openTabsSection.style.display = 'block';
   } else if (openTabsSection) {
     openTabsSection.style.display = 'none';
   }
@@ -1097,8 +1128,28 @@ async function renderStaticDashboard() {
   await renderDeferredColumn();
 }
 
+function setupTabSearch() {
+  const input = document.getElementById('tabSearchInput');
+  const clearBtn = document.getElementById('tabSearchClear');
+  if (!input || !clearBtn) return;
+  let debounceTimer = null;
+  const DEBOUNCE_MS = 120;
+  function syncClearButtonVisibility() { clearBtn.style.display = input.value.length > 0 ? 'inline-flex' : 'none'; }
+  function commitQueryFromInput() { searchQuery = input.value.trim().toLowerCase(); renderStaticDashboard(); }
+  input.addEventListener('input', () => { syncClearButtonVisibility(); if (debounceTimer) clearTimeout(debounceTimer); debounceTimer = setTimeout(commitQueryFromInput, DEBOUNCE_MS); });
+  clearBtn.addEventListener('click', () => { if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; } input.value = ''; syncClearButtonVisibility(); searchQuery = ''; renderStaticDashboard(); input.focus(); });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; } input.value = ''; syncClearButtonVisibility(); searchQuery = ''; renderStaticDashboard(); input.blur(); } });
+  function isTypingElsewhere() { const ae = document.activeElement; if (!ae) return false; if (ae === input) return true; const tag = ae.tagName; return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!ae.isContentEditable; }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingElsewhere()) { e.preventDefault(); input.focus(); input.select(); return; }
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); input.focus(); input.select(); }
+  });
+  tabSearchInitialized = true;
+}
+
 async function renderDashboard() {
   await renderStaticDashboard();
+  if (!tabSearchInitialized) setupTabSearch();
 }
 
 
@@ -1691,4 +1742,11 @@ document.getElementById('privacySearchInput')?.addEventListener('keydown', (e) =
 /* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
+
+document.addEventListener('error', (e) => {
+  if (e.target instanceof HTMLImageElement && e.target.classList.contains('chip-favicon--hide-on-error')) {
+    e.target.style.display = 'none';
+  }
+}, true);
+
 initPrivacyMode().then(() => initTheme()).then(() => renderDashboard());
