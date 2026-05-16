@@ -31,6 +31,10 @@ The agent will walk you through it. Takes about 1 minute.
 - **Localhost grouping** shows port numbers next to each tab so you can tell your vibe coding projects apart
 - **Expandable groups** show the first 8 tabs with a clickable "+N more"
 - **Dark mode** toggle in the header, with system preference detection and persistent setting
+- **Search tabs** filter all open tabs in real-time by title or URL — press `/` or `Cmd/Ctrl+K` to focus, `Esc` to clear
+- **Privacy mode** one-click screen-sharing overlay with clock and Google search — toggle via lock icon or `Esc`
+- **Quick Access** curated shortcuts card at the top, with compact bar and card layouts
+- **Dedup** auto-closes duplicate Tab Out tabs so you only ever have one
 - **100% local** your data never leaves your machine
 - **Pure Chrome extension** no server, no Node.js, no npm, no setup beyond loading the extension
 
