@@ -93,4 +93,4 @@ MIT
 
 ---
 
-Built by [Zara](https://x.com/zarazhangrui)
+Forked from [zarazhangrui/tab-out](https://github.com/zarazhangrui/tab-out). Extended & maintained by [pintaste](https://github.com/pintaste).
