@@ -1489,3 +1489,6 @@ body.no-entrance-anim .qa-bar {
 .folder-chevron { width: 14px; height: 14px; transition: transform 0.2s; color: var(--muted); }
 .bookmark-folder.open > .bookmark-folder-toggle .folder-chevron { transform: rotate(180deg); }
 .bookmark-folder-children { border-left: 1px solid rgba(154,145,138,0.1); margin-left: 6px; }
+body.has-bing-bg { background-size: cover; background-position: center; background-attachment: fixed; }
+body.has-bing-bg::before { background-image: none; background-color: rgba(248,245,240,0.68); }
+.bing-credit { font-size: 10px; color: var(--muted); margin-top: 4px; display: block; }
