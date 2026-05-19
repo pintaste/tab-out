@@ -268,6 +268,10 @@ async function getSavedTabs() {
   };
 }
 
+async function getBookmarks() {
+  try { return await chrome.bookmarks.getTree(); } catch { return []; }
+}
+
 /**
  * checkOffSavedTab(id)
  *
@@ -998,14 +1002,6 @@ async function renderDeferredColumn() {
   try {
     const { active, archived } = await getSavedTabs();
 
-    // Hide the entire column if there's nothing to show
-    if (active.length === 0 && archived.length === 0) {
-      column.style.display = 'none';
-      return;
-    }
-
-    column.style.display = 'block';
-
     // Render active checklist items
     if (active.length > 0) {
       countEl.textContent = `${active.length} item${active.length !== 1 ? 's' : ''}`;
@@ -1140,6 +1136,50 @@ function renderQuickAccessBarHTML(shortcuts) {
       '<span class="qa-bar-remove" data-action="remove-shortcut" data-shortcut-id="' + s.id + '" title="Remove shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></span></button>';
   }).join('');
   return '<div class="qa-bar">' + buttons + '<button class="qa-bar-add" data-action="start-add-shortcut" title="Add shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg></button><div class="qa-bar-spacer"></div><button class="qa-mode-toggle" data-action="toggle-quick-access-mode" title="Switch to card view">' + QUICK_ACCESS_MODE_ICONS.toCard + '</button></div>';
+}
+
+async function renderBookmarks() {
+  const column  = document.getElementById('deferredColumn');
+  const section = document.getElementById('bookmarksSection');
+  const list    = document.getElementById('bookmarksList');
+  const countEl = document.getElementById('bookmarksCount');
+  if (!section || !list) return;
+  try {
+    const tree = await getBookmarks();
+    const hasBookmarks = tree.some(node => node.children && node.children.length > 0);
+    if (!hasBookmarks) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    if (column) column.style.display = 'block';
+    const rootChildren = tree[0]?.children || [];
+    let bookmarkCount = 0;
+    function countNodes(nodes) {
+      for (const n of nodes) { if (n.url) bookmarkCount++; if (n.children) countNodes(n.children); }
+    }
+    countNodes(rootChildren);
+    countEl.textContent = bookmarkCount + ' item' + (bookmarkCount !== 1 ? 's' : '');
+    function renderNode(node) {
+      if (node.url) {
+        const faviconUrl = 'chrome-extension://' + chrome.runtime.id + '/_favicon/?pageUrl=' + encodeURIComponent(node.url) + '&size=32';
+        return '<div class="bookmark-item"><a href="' + node.url + '" class="bookmark-link" title="' + (node.title || '').replace(/"/g, '&quot;') + '">' +
+          '<img src="' + faviconUrl + '" class="bookmark-favicon" alt="" onerror="this.style.display=\'none\'">' +
+          '<span>' + (node.title || node.url) + '</span></a></div>';
+      } else if (node.children) {
+        if (node.children.length === 0 && node.id !== '0') return '';
+        const childHtml = node.children.map(c => renderNode(c)).join('');
+        if (node.id === '0' || node.id === '1' || node.id === '2' || node.id === '3') return childHtml;
+        return '<div class="bookmark-folder"><button class="bookmark-folder-toggle" data-action="toggle-bookmark-folder">' +
+          '<svg class="folder-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>' +
+          '<svg class="folder-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:14px;height:14px;color:var(--muted)"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.625-12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25h16.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75Z"/></svg>' +
+          '<span class="folder-name">' + node.title + '</span></button>' +
+          '<div class="bookmark-folder-children" style="display:none">' + childHtml + '</div></div>';
+      }
+      return '';
+    }
+    list.innerHTML = renderNode(tree[0]);
+  } catch (err) {
+    console.warn('[tab-out] Could not load bookmarks:', err);
+    section.style.display = 'none';
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -1324,6 +1364,7 @@ async function renderStaticDashboard() {
 
   // --- Render "Saved for Later" column ---
   await renderDeferredColumn();
+  await renderBookmarks();
 }
 
 function setupTabSearch() {
@@ -1537,6 +1578,17 @@ document.addEventListener('click', async (e) => {
       item.style.transform = 'translateX(12px)';
       item.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
       setTimeout(() => { item.remove(); renderDeferredColumn(); }, 200);
+    }
+    return;
+  }
+
+  // ---- Toggle bookmark folder ----
+  if (action === 'toggle-bookmark-folder') {
+    const folder = actionEl.closest('.bookmark-folder');
+    if (folder) {
+      folder.classList.toggle('open');
+      const children = folder.querySelector('.bookmark-folder-children');
+      if (children) children.style.display = children.style.display === 'none' ? 'block' : 'none';
     }
     return;
   }
