@@ -1533,3 +1533,8 @@ body.has-bing-bg::before { background-image: none; background-color: rgba(248,24
 .archive-delete { width: 24px; height: 24px; margin-left: -2px; }
 .archive-item { transition: opacity 0.18s, transform 0.18s; }
 .archive-item.removing { opacity: 0; transform: translateX(12px); }
+.device-subsection { margin-bottom: 28px; }
+.device-subsection-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 4px 10px; margin-bottom: 8px; border-bottom: 1px dashed var(--warm-gray); }
+.device-subsection-name { font-size: 17px; font-weight: 500; color: var(--ink); }
+.device-subsection-meta { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.device-tabs { display: flex; flex-direction: column; gap: 0; }

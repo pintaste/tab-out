@@ -1245,6 +1245,73 @@ function renderQuickAccessBarHTML(shortcuts) {
   return '<div class="qa-bar">' + buttons + '<button class="qa-bar-add" data-action="start-add-shortcut" title="Add shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg></button><div class="qa-bar-spacer"></div><button class="qa-mode-toggle" data-action="toggle-quick-access-mode" title="Switch to card view">' + QUICK_ACCESS_MODE_ICONS.toCard + '</button></div>';
 }
 
+/* ----------------------------------------------------------------
+   OTHER DEVICES — synced tabs via chrome.sessions
+   ---------------------------------------------------------------- */
+
+let otherDeviceGroups = [];
+
+async function fetchOtherDeviceTabs() {
+  otherDeviceGroups = [];
+  if (!chrome.sessions || typeof chrome.sessions.getDevices !== 'function') return [];
+  try {
+    const devices = await new Promise((resolve, reject) => {
+      chrome.sessions.getDevices((result) => {
+        const err = chrome.runtime.lastError;
+        if (err) reject(err); else resolve(result || []);
+      });
+    });
+    for (const device of devices) {
+      const tabs = []; const seenUrls = new Set(); let lastModified = 0;
+      for (const session of (device.sessions || [])) {
+        if (session.lastModified && session.lastModified > lastModified) lastModified = session.lastModified;
+        const windowTabs = session.window && Array.isArray(session.window.tabs) ? session.window.tabs : [];
+        const allTabs = session.tab ? [session.tab, ...windowTabs] : windowTabs;
+        for (const t of allTabs) {
+          const url = t.url || '';
+          if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) continue;
+          if (seenUrls.has(url)) continue;
+          seenUrls.add(url);
+          tabs.push({ url, title: t.title || url, sessionId: t.sessionId });
+        }
+      }
+      if (tabs.length > 0) otherDeviceGroups.push({ deviceName: device.deviceName || 'Other device', lastModified, tabs });
+    }
+    otherDeviceGroups.sort((a, b) => b.lastModified - a.lastModified);
+  } catch (err) { console.warn('[tab-out] sessions.getDevices failed:', err); }
+  return otherDeviceGroups;
+}
+
+async function restoreRemoteSession(sessionId, fallbackUrl) {
+  if (sessionId && chrome.sessions && typeof chrome.sessions.restore === 'function') {
+    try { await new Promise((resolve, reject) => { chrome.sessions.restore(sessionId, () => { chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(); }); }); return; }
+    catch (err) { console.warn('[tab-out] sessions.restore failed:', err); }
+  }
+  if (fallbackUrl) { try { await chrome.tabs.create({ url: fallbackUrl, active: true }); } catch {} }
+}
+
+function renderOtherDevicesSection() {
+  const section = document.getElementById('otherDevicesSection');
+  const missions = document.getElementById('otherDevicesMissions');
+  if (!section || !missions) return;
+  if (otherDeviceGroups.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  const totalTabs = otherDeviceGroups.reduce((s, d) => s + d.tabs.length, 0);
+  const countEl = document.getElementById('otherDevicesSectionCount');
+  if (countEl) countEl.textContent = otherDeviceGroups.length + ' device' + (otherDeviceGroups.length !== 1 ? 's' : '') + ' · ' + totalTabs + ' tab' + (totalTabs !== 1 ? 's' : '');
+  missions.innerHTML = otherDeviceGroups.map((d, i) => {
+    const lastSeen = d.lastModified ? 'last active ' + timeAgo(new Date(d.lastModified * 1000).toISOString()) : '';
+    return '<div class="device-subsection"><div class="device-subsection-header">' +
+      '<span class="device-subsection-name">' + d.deviceName + '</span>' +
+      '<span class="device-subsection-meta">' + d.tabs.length + ' tab' + (d.tabs.length !== 1 ? 's' : '') + (lastSeen ? ' · ' + lastSeen : '') + '</span></div>' +
+      '<div class="device-tabs">' + d.tabs.map(t => {
+        const safeUrl = (t.url || '').replace(/"/g, '&quot;');
+        return '<div class="page-chip clickable" data-action="restore-remote-tab" data-session-id="' + (t.sessionId || '') + '" data-tab-url="' + safeUrl + '" title="' + (t.title || t.url).replace(/"/g, '&quot;') + '">' +
+          '<span class="chip-text">' + (t.title || t.url) + '</span></div>';
+      }).join('') + '</div></div>';
+  }).join('');
+}
+
 async function renderFavoritesSection() {
   const list = document.getElementById('favoriteList');
   const empty = document.getElementById('favoriteEmpty');
@@ -1338,6 +1405,7 @@ async function renderStaticDashboard() {
 
   // --- Fetch tabs ---
   await fetchOpenTabs();
+  await fetchOtherDeviceTabs();
   buildWindowNameMap();
   let realTabs = getRealTabs();
 
@@ -1512,6 +1580,7 @@ async function renderStaticDashboard() {
   // --- Render "Saved for Later" column ---
   await renderDeferredColumn();
   await renderBookmarks();
+  renderOtherDevicesSection();
 }
 
 function setupTabSearch() {
@@ -1660,6 +1729,12 @@ document.addEventListener('click', async (e) => {
       overflowContainer.style.display = 'contents';
       actionEl.remove();
     }
+    return;
+  }
+
+  // ---- Restore tab from another device ----
+  if (action === 'restore-remote-tab') {
+    await restoreRemoteSession(actionEl.dataset.sessionId, actionEl.dataset.tabUrl);
     return;
   }
 
