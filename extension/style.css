@@ -1427,10 +1427,10 @@ body.privacy-mode .privacy-screen { display: flex !important; }
   justify-content: center;
   width: 36px;
   height: 36px;
-  border: 1px solid var(--warm-gray);
+  border: 1px solid rgba(200,113,58,0.3);
   border-radius: 8px;
   background: var(--card-bg);
-  color: var(--muted);
+  color: var(--accent-amber);
   cursor: pointer;
   transition: all 0.2s;
   padding: 0;
@@ -1438,8 +1438,17 @@ body.privacy-mode .privacy-screen { display: flex !important; }
 }
 .auto-refresh-toggle svg { width: 16px; height: 16px; }
 .auto-refresh-toggle:hover { border-color: var(--ink); color: var(--ink); background: var(--paper); }
+
 .auto-refresh-on { display: block; }
 .auto-refresh-off { display: none; }
+
+.auto-refresh-toggle.auto-refresh-disabled {
+  color: var(--muted);
+  border-color: var(--warm-gray);
+  opacity: 0.5;
+}
+.auto-refresh-toggle.auto-refresh-disabled .auto-refresh-on { display: none; }
+.auto-refresh-toggle.auto-refresh-disabled .auto-refresh-off { display: block; }
 
 @keyframes spin {
   from { transform: rotate(0deg); }
