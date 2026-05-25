@@ -301,6 +301,11 @@ async function deleteSavedTab(id) {
   await chrome.storage.local.set({ deferred: deferred.filter(t => t.id !== id) });
 }
 
+async function clearArchive() {
+  const { deferred = [] } = await chrome.storage.local.get('deferred');
+  await chrome.storage.local.set({ deferred: deferred.filter(t => !t.completed) });
+}
+
 /* ----------------------------------------------------------------
    QUICK ACCESS
    ---------------------------------------------------------------- */
@@ -1100,6 +1105,9 @@ function renderDeferredItem(item) {
           <span>${ago}</span>
         </div>
       </div>
+      <button class="deferred-reopen" data-action="reopen-deferred" data-deferred-id="${item.id}" data-deferred-url="${item.url}" title="Reopen tab">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+      </button>
       <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Dismiss">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
@@ -1866,6 +1874,20 @@ document.addEventListener('click', async (e) => {
         renderDeferredColumn();
       }, 300);
     }
+    return;
+  }
+
+  // ---- Reopen a saved tab in a new tab ----
+  if (action === 'reopen-deferred') {
+    const url = actionEl.dataset.deferredUrl;
+    if (url) await chrome.tabs.create({ url, active: true });
+    return;
+  }
+
+  // ---- Clear all archived items ----
+  if (action === 'clear-archive') {
+    await clearArchive();
+    await renderDeferredColumn();
     return;
   }
 

@@ -1140,6 +1140,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 /* Dismiss (X) button */
+.deferred-reopen,
 .deferred-dismiss {
   background: none;
   border: none;
@@ -1152,12 +1153,36 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   margin-top: 1px;
 }
 
+.deferred-reopen svg,
 .deferred-dismiss svg {
   width: 14px;
   height: 14px;
 }
 
+.deferred-reopen:hover {
+  opacity: 1;
+  color: var(--accent-amber);
+}
+
 .deferred-dismiss:hover {
+  opacity: 1;
+  color: var(--status-abandoned);
+}
+
+.archive-clear-all {
+  display: block;
+  margin-top: 8px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.archive-clear-all:hover {
   opacity: 1;
   color: var(--status-abandoned);
 }
