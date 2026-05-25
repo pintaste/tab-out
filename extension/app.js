@@ -252,40 +252,15 @@ async function saveTabForLater(tab) {
   await chrome.storage.local.set({ deferred });
 }
 
-/**
- * getSavedTabs()
- *
- * Returns all saved tabs from chrome.storage.local.
- * Filters out dismissed items (those are gone for good).
- * Splits into active (not completed) and archived (completed).
- */
 async function getSavedTabs() {
   const { deferred = [] } = await chrome.storage.local.get('deferred');
-  const visible = deferred.filter(t => !t.dismissed);
-  return {
-    active:   visible.filter(t => !t.completed),
-    archived: visible.filter(t => t.completed),
-  };
+  return deferred.filter(t => !t.dismissed);
 }
 
 async function getBookmarks() {
   try { return await chrome.bookmarks.getTree(); } catch { return []; }
 }
 
-/**
- * checkOffSavedTab(id)
- *
- * Marks a saved tab as completed (checked off). It moves to the archive.
- */
-async function checkOffSavedTab(id) {
-  const { deferred = [] } = await chrome.storage.local.get('deferred');
-  const tab = deferred.find(t => t.id === id);
-  if (tab) {
-    tab.completed = true;
-    tab.completedAt = new Date().toISOString();
-    await chrome.storage.local.set({ deferred });
-  }
-}
 
 /**
  * dismissSavedTab(id)
@@ -301,9 +276,15 @@ async function deleteSavedTab(id) {
   await chrome.storage.local.set({ deferred: deferred.filter(t => t.id !== id) });
 }
 
-async function clearArchive() {
-  const { deferred = [] } = await chrome.storage.local.get('deferred');
-  await chrome.storage.local.set({ deferred: deferred.filter(t => !t.completed) });
+async function clearAllDeferred() {
+  await chrome.storage.local.set({ deferred: [] });
+}
+
+async function openAllDeferred() {
+  const tabs = await getSavedTabs();
+  for (const tab of tabs) {
+    try { await chrome.tabs.create({ url: tab.url, active: false }); } catch {}
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -1040,53 +1021,36 @@ function renderDomainCard(group) {
  * and completed items in a collapsible archive.
  */
 async function renderDeferredColumn() {
-  const column         = document.getElementById('deferredColumn');
-  const list           = document.getElementById('deferredList');
-  const empty          = document.getElementById('deferredEmpty');
-  const countEl        = document.getElementById('deferredCount');
-  const archiveEl      = document.getElementById('deferredArchive');
-  const archiveCountEl = document.getElementById('archiveCount');
-  const archiveList    = document.getElementById('archiveList');
+  const column      = document.getElementById('deferredColumn');
+  const list        = document.getElementById('deferredList');
+  const empty       = document.getElementById('deferredEmpty');
+  const countEl     = document.getElementById('deferredCount');
+  const bulkActions = document.getElementById('deferredBulkActions');
 
   if (!column) return;
 
   try {
-    const { active, archived } = await getSavedTabs();
+    const tabs = await getSavedTabs();
 
-    // Render active checklist items
-    if (active.length > 0) {
+    if (tabs.length > 0) {
       column.style.display = 'block';
-      countEl.textContent = `${active.length} item${active.length !== 1 ? 's' : ''}`;
-      list.innerHTML = active.map(item => renderDeferredItem(item)).join('');
+      countEl.textContent = `${tabs.length} item${tabs.length !== 1 ? 's' : ''}`;
+      list.innerHTML = tabs.map(item => renderDeferredItem(item)).join('');
       list.style.display = 'block';
       empty.style.display = 'none';
+      if (bulkActions) bulkActions.style.display = 'flex';
     } else {
       list.style.display = 'none';
       countEl.textContent = '';
       empty.style.display = 'block';
+      if (bulkActions) bulkActions.style.display = 'none';
     }
-
-    // Render archive section
-    if (archived.length > 0) {
-      archiveCountEl.textContent = `(${archived.length})`;
-      archiveList.innerHTML = archived.map(item => renderArchiveItem(item)).join('');
-      archiveEl.style.display = 'block';
-    } else {
-      archiveEl.style.display = 'none';
-    }
-
   } catch (err) {
     console.warn('[tab-out] Could not load saved tabs:', err);
     column.style.display = 'none';
   }
 }
 
-/**
- * renderDeferredItem(item)
- *
- * Builds HTML for one active checklist item: checkbox, title link,
- * domain, time ago, dismiss button.
- */
 function renderDeferredItem(item) {
   let domain = '';
   try { domain = new URL(item.url).hostname.replace(/^www\./, ''); } catch {}
@@ -1095,7 +1059,6 @@ function renderDeferredItem(item) {
 
   return `
     <div class="deferred-item" data-deferred-id="${item.id}">
-      <input type="checkbox" class="deferred-checkbox" data-action="check-deferred" data-deferred-id="${item.id}">
       <div class="deferred-info">
         <a href="${item.url}" target="_blank" rel="noopener" class="deferred-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
           ${faviconUrl ? '<img class="chip-favicon chip-favicon--hide-on-error" src="' + faviconUrl + '" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px">' : ''}${item.title || item.url}
@@ -1105,29 +1068,10 @@ function renderDeferredItem(item) {
           <span>${ago}</span>
         </div>
       </div>
-      <button class="deferred-reopen" data-action="reopen-deferred" data-deferred-id="${item.id}" data-deferred-url="${item.url}" title="Reopen tab">
+      <button class="deferred-reopen" data-action="reopen-deferred" data-deferred-id="${item.id}" data-deferred-url="${item.url}" title="Open tab">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
       </button>
-      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Dismiss">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-      </button>
-    </div>`;
-}
-
-/**
- * renderArchiveItem(item)
- *
- * Builds HTML for one completed/archived item (simpler: just title + date).
- */
-function renderArchiveItem(item) {
-  const ago = item.completedAt ? timeAgo(item.completedAt) : timeAgo(item.savedAt);
-  return `
-    <div class="archive-item" data-deferred-id="${item.id}">
-      <a href="${item.url}" class="archive-item-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
-        ${item.title || item.url}
-      </a>
-      <span class="archive-item-date">${ago}</span>
-      <button class="archive-item-dismiss" data-action="dismiss-archive" data-deferred-id="${item.id}" title="Delete">
+      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Remove">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
     </div>`;
@@ -1838,28 +1782,7 @@ document.addEventListener('click', async (e) => {
   }
 
   // ---- Check off a saved tab (moves it to archive) ----
-  if (action === 'check-deferred') {
-    const id = actionEl.dataset.deferredId;
-    if (!id) return;
-
-    await checkOffSavedTab(id);
-
-    // Animate: strikethrough first, then slide out
-    const item = actionEl.closest('.deferred-item');
-    if (item) {
-      item.classList.add('checked');
-      setTimeout(() => {
-        item.classList.add('removing');
-        setTimeout(() => {
-          item.remove();
-          renderDeferredColumn(); // refresh counts and archive
-        }, 300);
-      }, 800);
-    }
-    return;
-  }
-
-  // ---- Dismiss a saved tab (removes it entirely) ----
+  // ---- Dismiss a saved tab ----
   if (action === 'dismiss-deferred') {
     const id = actionEl.dataset.deferredId;
     if (!id) return;
@@ -1884,25 +1807,16 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  // ---- Clear all archived items ----
-  if (action === 'clear-archive') {
-    await clearArchive();
-    await renderDeferredColumn();
+  // ---- Open all saved tabs ----
+  if (action === 'open-all-deferred') {
+    await openAllDeferred();
     return;
   }
 
-  // ---- Dismiss an archived saved tab ----
-  if (action === 'dismiss-archive') {
-    const id = actionEl.dataset.deferredId;
-    if (!id) return;
-    await dismissSavedTab(id);
-    const item = actionEl.closest('.archive-item');
-    if (item) {
-      item.style.opacity = '0';
-      item.style.transform = 'translateX(12px)';
-      item.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-      setTimeout(() => { item.remove(); renderDeferredColumn(); }, 200);
-    }
+  // ---- Clear all saved tabs ----
+  if (action === 'clear-all-deferred') {
+    await clearAllDeferred();
+    await renderDeferredColumn();
     return;
   }
 
@@ -1995,14 +1909,7 @@ document.addEventListener('click', async (e) => {
   if (action === 'open-shortcut') {
     const url = actionEl.dataset.shortcutUrl;
     if (!url) return;
-    const focused = await focusTab(url);
-    if (!focused) {
-      try {
-        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (currentTab) await chrome.tabs.update(currentTab.id, { url });
-        else window.location.href = url;
-      } catch { window.location.href = url; }
-    }
+    try { await chrome.tabs.create({ url, active: true }); } catch { window.location.href = url; }
     return;
   }
 
@@ -2095,17 +2002,6 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// ---- Archive toggle — expand/collapse the archive section ----
-document.addEventListener('click', (e) => {
-  const toggle = e.target.closest('#archiveToggle');
-  if (!toggle) return;
-
-  toggle.classList.toggle('open');
-  const body = document.getElementById('archiveBody');
-  if (body) {
-    body.style.display = body.style.display === 'none' ? 'block' : 'none';
-  }
-});
 
 // ---- Quick-access input handlers ----
 document.addEventListener('keydown', async (e) => {
@@ -2127,35 +2023,6 @@ document.addEventListener('blur', (e) => {
   setTimeout(() => { const stillThere = document.querySelector('.quick-access-input'); if (stillThere && stillThere === e.target) renderQuickAccess(); }, 150);
 }, true);
 
-// ---- Archive search — filter archived items as user types ----
-document.addEventListener('input', async (e) => {
-  if (e.target.id !== 'archiveSearch') return;
-
-  const q = e.target.value.trim().toLowerCase();
-  const archiveList = document.getElementById('archiveList');
-  if (!archiveList) return;
-
-  try {
-    const { archived } = await getSavedTabs();
-
-    if (q.length < 2) {
-      // Show all archived items
-      archiveList.innerHTML = archived.map(item => renderArchiveItem(item)).join('');
-      return;
-    }
-
-    // Filter by title or URL containing the query string
-    const results = archived.filter(item =>
-      (item.title || '').toLowerCase().includes(q) ||
-      (item.url  || '').toLowerCase().includes(q)
-    );
-
-    archiveList.innerHTML = results.map(item => renderArchiveItem(item)).join('')
-      || '<div style="font-size:12px;color:var(--muted);padding:8px 0">No results</div>';
-  } catch (err) {
-    console.warn('[tab-out] Archive search failed:', err);
-  }
-});
 
 
 /* ----------------------------------------------------------------

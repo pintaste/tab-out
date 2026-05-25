@@ -1063,7 +1063,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   border-bottom: none;
 }
 
-/* Custom checkbox */
+/* Custom checkbox — kept for potential future use */
 .deferred-checkbox {
   appearance: none;
   -webkit-appearance: none;
@@ -1169,22 +1169,35 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   color: var(--status-abandoned);
 }
 
-.archive-clear-all {
-  display: block;
-  margin-top: 8px;
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 2px 0;
-  opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s;
+/* ---- Bulk actions (Open all / Clear all) ---- */
+.deferred-bulk-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--warm-gray);
 }
 
-.archive-clear-all:hover {
-  opacity: 1;
+.deferred-bulk-btn {
+  background: none;
+  border: 1px solid var(--warm-gray);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.deferred-bulk-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.deferred-bulk-btn--danger:hover {
   color: var(--status-abandoned);
+  border-color: var(--status-abandoned);
 }
 
 /* Slide-out animation for items being removed */
@@ -1203,111 +1216,6 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   text-align: center;
 }
 
-/* ---- Archive section ---- */
-.deferred-archive {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--warm-gray);
-}
-
-.archive-toggle {
-  font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 0;
-  width: 100%;
-  text-align: left;
-  transition: color 0.15s;
-}
-
-.archive-toggle:hover {
-  color: var(--ink);
-}
-
-.archive-chevron {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.2s;
-}
-
-.archive-toggle.open .archive-chevron {
-  transform: rotate(180deg);
-}
-
-.archive-count {
-  font-size: 11px;
-  color: var(--muted);
-  opacity: 0.7;
-}
-
-.archive-body {
-  padding-top: 12px;
-}
-
-.archive-search {
-  font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-  font-size: 12px;
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--warm-gray);
-  border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--ink);
-  outline: none;
-  transition: border-color 0.2s;
-  margin-bottom: 12px;
-}
-
-.archive-search:focus {
-  border-color: var(--accent-amber);
-}
-
-.archive-search::placeholder {
-  color: var(--muted);
-}
-
-/* Archive items are simpler — just title + domain + date */
-.archive-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(154, 145, 138, 0.08);
-}
-
-.archive-item:last-child {
-  border-bottom: none;
-}
-
-.archive-item-title {
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-  transition: color 0.15s;
-}
-
-.archive-item-title:hover {
-  color: var(--ink);
-}
-
-.archive-item-date {
-  font-size: 10px;
-  color: var(--muted);
-  opacity: 0.6;
-  flex-shrink: 0;
-}
 /* ================================================================
    PRIVACY MODE
    ================================================================ */
@@ -1369,26 +1277,6 @@ body.privacy-mode .privacy-screen { display: flex !important; }
 .privacy-setting-sub { margin-left: 24px; margin-bottom: 4px; }
 .privacy-setting-input { width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--warm-gray); border-radius: 4px; background: var(--paper); color: var(--ink); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size: 12px; outline: none; }
 .privacy-setting-input:focus { border-color: var(--accent-amber); }
-/* ================================================================
-   ARCHIVE DISMISS
-   ================================================================ */
-
-.archive-item-dismiss {
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  color: var(--muted);
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.archive-item-dismiss svg { width: 12px; height: 12px; }
-.archive-item:hover .archive-item-dismiss { opacity: 0.5; }
-.archive-item-dismiss:hover { opacity: 1 !important; color: var(--status-abandoned); }
 /* ================================================================
    HEADER SEARCH
    ================================================================ */
