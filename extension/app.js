@@ -1050,6 +1050,7 @@ async function renderDeferredColumn() {
 
     // Render active checklist items
     if (active.length > 0) {
+      column.style.display = 'block';
       countEl.textContent = `${active.length} item${active.length !== 1 ? 's' : ''}`;
       list.innerHTML = active.map(item => renderDeferredItem(item)).join('');
       list.style.display = 'block';
