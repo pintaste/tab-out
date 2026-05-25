@@ -1202,16 +1202,8 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   border-top: 1px solid var(--warm-gray);
 }
 
-.deferred-bulk-left {
-  display: flex;
-  gap: 6px;
-}
-
 .deferred-remove-btn {
   border-radius: 20px;
-  font-size: 11px;
-  padding: 5px 14px;
-  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -1286,8 +1278,20 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   min-width: 0;
 }
 
+.deferred-column.collapsed .section-header h2,
+.deferred-column.collapsed .section-count,
 .deferred-column.collapsed .section-line {
   display: none;
+}
+
+.deferred-column.collapsed .section-header {
+  justify-content: center;
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+.deferred-column.collapsed .deferred-collapse-btn {
+  opacity: 0.7;
 }
 
 .deferred-column.collapsed .deferred-chevron {

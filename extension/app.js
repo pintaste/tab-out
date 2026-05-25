@@ -2045,12 +2045,15 @@ document.addEventListener('click', async (e) => {
 });
 
 
-// ---- Deferred item selection — show/hide Open selected button ----
+// ---- Deferred item selection — toggle open button label/action ----
 document.addEventListener('change', (e) => {
   if (!e.target.classList.contains('deferred-select')) return;
   const hasSelection = document.querySelectorAll('.deferred-select:checked').length > 0;
-  const openSelectedBtn = document.getElementById('openSelectedBtn');
-  if (openSelectedBtn) openSelectedBtn.style.display = hasSelection ? '' : 'none';
+  const openBtn = document.getElementById('openDeferredBtn');
+  if (openBtn) {
+    openBtn.textContent = hasSelection ? 'Open selected' : 'Open all';
+    openBtn.dataset.action = hasSelection ? 'open-selected-deferred' : 'open-all-deferred';
+  }
 });
 
 // ---- Saved for later collapse toggle ----
