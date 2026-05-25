@@ -1022,34 +1022,30 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   align-items: flex-start;
 }
 
-/* Open tabs column keeps the grid layout */
+/* Open tabs — full width */
 .dashboard-columns .active-section {
   flex: 1;
-  min-width: 600px;
+  min-width: 0;
 }
 
-/* Saved for later column — fixed width on the right, scrolls independently */
+/* Saved for later — full-width section between Quick Access and open tabs */
 .deferred-column {
-  width: 280px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 32px;
-  max-height: calc(100vh - 64px);
-  overflow-y: auto;
+  margin-bottom: 8px;
 }
 
-/* On narrow screens, stack vertically */
 @media (max-width: 800px) {
   .dashboard-columns {
     flex-direction: column;
   }
-  .deferred-column {
-    width: 100%;
-    position: static;
-  }
 }
 
-/* ---- Checklist items ---- */
+/* ---- Checklist items — multi-column grid ---- */
+.deferred-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  column-gap: 24px;
+}
+
 .deferred-item {
   display: flex;
   align-items: flex-start;
@@ -1272,26 +1268,9 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   transition: transform 0.2s ease;
 }
 
-/* Collapsed: shrink column to header width, give space back to open tabs */
-.deferred-column.collapsed {
-  width: auto;
-  min-width: 0;
-}
-
-.deferred-column.collapsed .section-header h2,
-.deferred-column.collapsed .section-count,
-.deferred-column.collapsed .section-line {
-  display: none;
-}
-
+/* Collapsed: hide content, keep header visible */
 .deferred-column.collapsed .section-header {
-  justify-content: center;
   margin-bottom: 0;
-  margin-top: 0;
-}
-
-.deferred-column.collapsed .deferred-collapse-btn {
-  opacity: 0.7;
 }
 
 .deferred-column.collapsed .deferred-chevron {

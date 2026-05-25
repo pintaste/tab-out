@@ -100,15 +100,48 @@
 
   <div id="quickAccessContainer" style="display:none"></div>
 
+  <!-- Saved for Later — below Quick Access, above open tabs -->
+  <div class="deferred-column" id="deferredColumn" style="display:none">
+    <div class="section-header">
+      <h2>Saved for later</h2>
+      <div class="section-line"></div>
+      <div class="section-count" id="deferredCount"></div>
+      <button class="deferred-collapse-btn" id="deferredCollapseBtn" title="Collapse">
+        <svg class="deferred-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+      </button>
+    </div>
+
+    <div class="deferred-list" id="deferredList"></div>
+
+    <div class="deferred-empty" id="deferredEmpty" style="display:none">
+      Nothing saved. Living in the moment.
+    </div>
+
+    <div class="deferred-bulk-actions" id="deferredBulkActions" style="display:none">
+      <button class="deferred-bulk-btn" id="openDeferredBtn" data-action="open-all-deferred">Open all</button>
+      <button class="action-btn close-tabs deferred-remove-btn" id="deferredCloseAll" data-action="close-all-deferred">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        Remove <span id="deferredCloseAllCount"></span>
+      </button>
+    </div>
+
+    <!-- Bookmarks section -->
+    <div class="bookmarks-section" id="bookmarksSection" style="display:none; margin-top: 32px;">
+      <div class="section-header">
+        <h2>Bookmarks</h2>
+        <div class="section-line"></div>
+        <div class="section-count" id="bookmarksCount"></div>
+      </div>
+      <div class="bookmarks-list" id="bookmarksList"></div>
+    </div>
+  </div>
+
   <!-- ================================================================
-       MAIN CONTENT AREA — two-column layout
-       Left: open tabs (domain/mission cards)
-       Right: saved for later checklist
-       The right column only renders when it has items (JS controls this)
+       MAIN CONTENT AREA — open tabs
        ================================================================ -->
   <div class="dashboard-columns" id="dashboardColumns">
 
-    <!-- LEFT COLUMN: Open tabs -->
+    <!-- Open tabs -->
     <div class="active-section" id="openTabsSection" style="display:none">
       <div class="section-header">
         <h2 id="openTabsSectionTitle">Right now</h2>
@@ -125,42 +158,6 @@
           <div class="section-count" id="otherDevicesSectionCount"></div>
         </div>
         <div class="missions" id="otherDevicesMissions"></div>
-      </div>
-    </div>
-
-    <!-- RIGHT COLUMN: Saved for Later -->
-    <div class="deferred-column" id="deferredColumn" style="display:none">
-      <div class="section-header">
-        <h2>Saved for later</h2>
-        <div class="section-line"></div>
-        <div class="section-count" id="deferredCount"></div>
-        <button class="deferred-collapse-btn" id="deferredCollapseBtn" title="Collapse">
-          <svg class="deferred-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
-        </button>
-      </div>
-
-      <div class="deferred-list" id="deferredList"></div>
-
-      <div class="deferred-empty" id="deferredEmpty" style="display:none">
-        Nothing saved. Living in the moment.
-      </div>
-
-      <div class="deferred-bulk-actions" id="deferredBulkActions" style="display:none">
-        <button class="deferred-bulk-btn" id="openDeferredBtn" data-action="open-all-deferred">Open all</button>
-        <button class="action-btn close-tabs deferred-remove-btn" id="deferredCloseAll" data-action="close-all-deferred">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-          Remove <span id="deferredCloseAllCount"></span>
-        </button>
-      </div>
-
-      <!-- Bookmarks section -->
-      <div class="bookmarks-section" id="bookmarksSection" style="display:none; margin-top: 32px;">
-        <div class="section-header">
-          <h2>Bookmarks</h2>
-          <div class="section-line"></div>
-          <div class="section-count" id="bookmarksCount"></div>
-        </div>
-        <div class="bookmarks-list" id="bookmarksList"></div>
       </div>
     </div>
 
