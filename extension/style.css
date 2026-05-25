@@ -1028,9 +1028,55 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   min-width: 0;
 }
 
-/* Saved for later — full-width section between Quick Access and open tabs */
+/* Saved for later — card style matching mission-card */
 .deferred-column {
+  background: var(--card-bg);
+  border: 1px solid var(--warm-gray);
+  border-radius: 8px;
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.deferred-column::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--warm-gray);
+}
+
+/* Header — match mission-top style, entire row is clickable */
+.deferred-column .section-header {
+  gap: 10px;
   margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.deferred-column .section-header h2 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  font-style: normal;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+/* Count badge — amber pill matching open-tabs-badge */
+.deferred-column .section-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent-amber);
+  background: rgba(200, 113, 58, 0.08);
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0;
 }
 
 @media (max-width: 800px) {
@@ -1039,7 +1085,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   }
 }
 
-/* ---- Checklist items — multi-column grid ---- */
+/* ---- Saved for later items — reuse page-chip rows ---- */
 .deferred-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -1047,122 +1093,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 }
 
 .deferred-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(154, 145, 138, 0.12);
   animation: fadeUp 0.3s ease both;
-}
-
-.deferred-item:last-child {
-  border-bottom: none;
-}
-
-/* Custom checkbox — kept for potential future use */
-.deferred-checkbox {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--warm-gray);
-  border-radius: 4px;
-  cursor: pointer;
-  flex-shrink: 0;
-  margin-top: 1px;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.deferred-checkbox:hover {
-  border-color: var(--accent-sage);
-}
-
-.deferred-checkbox:checked {
-  background: var(--accent-sage);
-  border-color: var(--accent-sage);
-}
-
-/* Checkmark inside the checkbox */
-.deferred-checkbox:checked::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 5px;
-  width: 4px;
-  height: 8px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-/* Item content (title, domain, time) */
-.deferred-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.deferred-title {
-  font-size: 13px;
-  color: var(--ink);
-  text-decoration: none;
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 0.15s;
-}
-
-.deferred-title:hover {
-  color: var(--accent-amber);
-}
-
-.deferred-meta {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 2px;
-  display: flex;
-  gap: 8px;
-}
-
-/* Checked-off item — strikethrough + faded */
-.deferred-item.checked .deferred-title {
-  text-decoration: line-through;
-  color: var(--muted);
-}
-
-.deferred-item.checked .deferred-meta {
-  opacity: 0.5;
-}
-
-/* Dismiss (X) button */
-.deferred-reopen,
-.deferred-dismiss {
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 2px;
-  opacity: 0.3;
-  transition: opacity 0.15s, color 0.15s;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.deferred-reopen svg,
-.deferred-dismiss svg {
-  width: 14px;
-  height: 14px;
-}
-
-.deferred-reopen:hover {
-  opacity: 1;
-  color: var(--accent-amber);
-}
-
-.deferred-dismiss:hover {
-  opacity: 1;
-  color: var(--status-abandoned);
 }
 
 /* ---- Selection checkbox ---- */

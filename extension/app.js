@@ -1064,29 +1064,25 @@ async function renderDeferredColumn() {
 }
 
 function renderDeferredItem(item) {
-  let domain = '';
-  try { domain = new URL(item.url).hostname.replace(/^www\./, ''); } catch {}
   const faviconUrl = faviconSrc(item);
-  const ago = timeAgo(item.savedAt);
+  const safeTitle = (item.title || item.url).replace(/"/g, '&quot;');
+  const favicon = faviconUrl
+    ? `<img class="chip-favicon chip-favicon--hide-on-error" src="${faviconUrl}" alt="">`
+    : '';
 
   return `
-    <div class="deferred-item" data-deferred-id="${item.id}">
+    <div class="page-chip deferred-item" data-deferred-id="${item.id}">
       <input type="checkbox" class="deferred-select" data-deferred-id="${item.id}">
-      <div class="deferred-info">
-        <a href="${item.url}" target="_blank" rel="noopener" class="deferred-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
-          ${faviconUrl ? '<img class="chip-favicon chip-favicon--hide-on-error" src="' + faviconUrl + '" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px">' : ''}${item.title || item.url}
-        </a>
-        <div class="deferred-meta">
-          <span>${domain}</span>
-          <span>${ago}</span>
-        </div>
+      ${favicon}
+      <span class="chip-text" title="${safeTitle}">${item.title || item.url}</span>
+      <div class="chip-actions">
+        <button class="chip-action" data-action="reopen-deferred" data-deferred-id="${item.id}" data-deferred-url="${item.url}" title="Open tab">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+        </button>
+        <button class="chip-action chip-close" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Remove">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
       </div>
-      <button class="deferred-reopen" data-action="reopen-deferred" data-deferred-id="${item.id}" data-deferred-url="${item.url}" title="Open tab">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-      </button>
-      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="Remove">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-      </button>
     </div>`;
 }
 
@@ -2056,16 +2052,17 @@ document.addEventListener('change', (e) => {
   }
 });
 
-// ---- Saved for later collapse toggle ----
+// ---- Saved for later collapse toggle — click anywhere in header ----
 (function initDeferredCollapse() {
   const col = document.getElementById('deferredColumn');
+  const header = col?.querySelector('.section-header');
   const btn = document.getElementById('deferredCollapseBtn');
-  if (!col || !btn) return;
+  if (!col || !header) return;
   if (localStorage.getItem('deferredCollapsed') === '1') col.classList.add('collapsed');
-  btn.addEventListener('click', () => {
+  header.addEventListener('click', () => {
     const collapsed = col.classList.toggle('collapsed');
     localStorage.setItem('deferredCollapsed', collapsed ? '1' : '0');
-    btn.title = collapsed ? 'Expand' : 'Collapse';
+    if (btn) btn.title = collapsed ? 'Expand' : 'Collapse';
   });
 })();
 
