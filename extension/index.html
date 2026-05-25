@@ -143,8 +143,14 @@
       </div>
 
       <div class="deferred-bulk-actions" id="deferredBulkActions" style="display:none">
-        <button class="deferred-bulk-btn" data-action="open-all-deferred">Open all</button>
-        <button class="deferred-bulk-btn deferred-bulk-btn--danger" data-action="clear-all-deferred">Clear all</button>
+        <div class="deferred-bulk-row" id="bulkRowAll">
+          <button class="deferred-bulk-btn" data-action="open-all-deferred">Open all</button>
+          <button class="deferred-bulk-btn deferred-bulk-btn--danger" data-action="clear-all-deferred">Clear all</button>
+        </div>
+        <div class="deferred-bulk-row" id="bulkRowSelected" style="display:none">
+          <button class="deferred-bulk-btn" id="openSelectedBtn" data-action="open-selected-deferred">Open selected</button>
+          <button class="deferred-bulk-btn deferred-bulk-btn--danger" id="closeSelectedBtn" data-action="close-selected-deferred">Close selected</button>
+        </div>
       </div>
 
       <!-- Bookmarks section -->

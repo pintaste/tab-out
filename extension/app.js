@@ -1030,7 +1030,14 @@ async function renderDeferredColumn() {
   if (!column) return;
 
   try {
-    const tabs = await getSavedTabs();
+    const allTabs = await getSavedTabs();
+
+    // Auto-dismiss items whose URL is already open in Chrome
+    const openUrls = new Set(openTabs.map(t => t.url).filter(Boolean));
+    for (const tab of allTabs.filter(t => openUrls.has(t.url))) {
+      await dismissSavedTab(tab.id);
+    }
+    const tabs = allTabs.filter(t => !openUrls.has(t.url));
 
     if (tabs.length > 0) {
       column.style.display = 'block';
@@ -1038,7 +1045,7 @@ async function renderDeferredColumn() {
       list.innerHTML = tabs.map(item => renderDeferredItem(item)).join('');
       list.style.display = 'block';
       empty.style.display = 'none';
-      if (bulkActions) bulkActions.style.display = 'flex';
+      if (bulkActions) bulkActions.style.display = 'block';
     } else {
       list.style.display = 'none';
       countEl.textContent = '';
@@ -1059,6 +1066,7 @@ function renderDeferredItem(item) {
 
   return `
     <div class="deferred-item" data-deferred-id="${item.id}">
+      <input type="checkbox" class="deferred-select" data-deferred-id="${item.id}">
       <div class="deferred-info">
         <a href="${item.url}" target="_blank" rel="noopener" class="deferred-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
           ${faviconUrl ? '<img class="chip-favicon chip-favicon--hide-on-error" src="' + faviconUrl + '" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px">' : ''}${item.title || item.url}
@@ -1800,10 +1808,19 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  // ---- Reopen a saved tab in a new tab ----
+  // ---- Reopen a saved tab in a new tab, then remove from list ----
   if (action === 'reopen-deferred') {
     const url = actionEl.dataset.deferredUrl;
-    if (url) await chrome.tabs.create({ url, active: true });
+    const id  = actionEl.dataset.deferredId;
+    if (url) {
+      try { await chrome.tabs.create({ url, active: true }); } catch {}
+      await dismissSavedTab(id);
+      const item = actionEl.closest('.deferred-item');
+      if (item) {
+        item.classList.add('removing');
+        setTimeout(() => { item.remove(); renderDeferredColumn(); }, 300);
+      }
+    }
     return;
   }
 
@@ -1816,6 +1833,26 @@ document.addEventListener('click', async (e) => {
   // ---- Clear all saved tabs ----
   if (action === 'clear-all-deferred') {
     await clearAllDeferred();
+    await renderDeferredColumn();
+    return;
+  }
+
+  // ---- Open selected saved tabs then remove them ----
+  if (action === 'open-selected-deferred') {
+    const ids = [...document.querySelectorAll('.deferred-select:checked')].map(cb => cb.dataset.deferredId);
+    const tabs = await getSavedTabs();
+    for (const tab of tabs.filter(t => ids.includes(t.id))) {
+      try { await chrome.tabs.create({ url: tab.url, active: false }); } catch {}
+      await dismissSavedTab(tab.id);
+    }
+    await renderDeferredColumn();
+    return;
+  }
+
+  // ---- Close (dismiss) selected saved tabs ----
+  if (action === 'close-selected-deferred') {
+    const ids = [...document.querySelectorAll('.deferred-select:checked')].map(cb => cb.dataset.deferredId);
+    for (const id of ids) await dismissSavedTab(id);
     await renderDeferredColumn();
     return;
   }
@@ -2002,6 +2039,14 @@ document.addEventListener('click', async (e) => {
   }
 });
 
+
+// ---- Deferred item selection — show/hide selected-action row ----
+document.addEventListener('change', (e) => {
+  if (!e.target.classList.contains('deferred-select')) return;
+  const hasSelection = document.querySelectorAll('.deferred-select:checked').length > 0;
+  const rowSelected = document.getElementById('bulkRowSelected');
+  if (rowSelected) rowSelected.style.display = hasSelection ? 'flex' : 'none';
+});
 
 // ---- Quick-access input handlers ----
 document.addEventListener('keydown', async (e) => {
