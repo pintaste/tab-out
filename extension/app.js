@@ -1217,8 +1217,8 @@ function setupQuickAccessDnd(host, shortcuts) {
     document.body.appendChild(ghost);
     requestAnimationFrame(() => {
       if (!ghost) return;
-      ghost.style.transform  = 'scale(1.07)';
-      ghost.style.boxShadow  = '0 10px 30px rgba(0,0,0,0.22)';
+      ghost.style.transform  = 'scale(1.02)';
+      ghost.style.boxShadow  = '0 4px 12px rgba(0,0,0,0.12)';
     });
 
     dragEl.classList.add('qa-dragging');

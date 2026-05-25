@@ -1516,18 +1516,12 @@ body.privacy-mode .privacy-screen { display: flex !important; }
 }
 
 .qa-dragging {
-  opacity: 0.2;
-  border-style: dashed !important;
+  opacity: 0.35;
 }
 
-.page-chip.qa-drag-over {
-  box-shadow: 0 0 0 2px var(--accent-amber);
-  transform: scale(1.03);
-}
-
+.page-chip.qa-drag-over,
 .qa-bar-btn.qa-drag-over {
-  box-shadow: 0 0 0 2px var(--accent-amber);
-  background: rgba(200, 113, 58, 0.08);
+  box-shadow: 0 0 0 1px rgba(200, 113, 58, 0.5);
 }
 
 body.no-entrance-anim header,
