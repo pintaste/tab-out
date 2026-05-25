@@ -2053,6 +2053,19 @@ document.addEventListener('change', (e) => {
   if (openSelectedBtn) openSelectedBtn.style.display = hasSelection ? '' : 'none';
 });
 
+// ---- Saved for later collapse toggle ----
+(function initDeferredCollapse() {
+  const col = document.getElementById('deferredColumn');
+  const btn = document.getElementById('deferredCollapseBtn');
+  if (!col || !btn) return;
+  if (localStorage.getItem('deferredCollapsed') === '1') col.classList.add('collapsed');
+  btn.addEventListener('click', () => {
+    const collapsed = col.classList.toggle('collapsed');
+    localStorage.setItem('deferredCollapsed', collapsed ? '1' : '0');
+    btn.title = collapsed ? 'Expand' : 'Collapse';
+  });
+})();
+
 // ---- Quick-access input handlers ----
 document.addEventListener('keydown', async (e) => {
   if (!e.target.classList || !e.target.classList.contains('quick-access-input')) return;

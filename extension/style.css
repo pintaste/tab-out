@@ -1193,8 +1193,10 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 /* ---- Bulk actions ---- */
 .deferred-bulk-actions {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--warm-gray);
@@ -1208,7 +1210,9 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 .deferred-remove-btn {
   border-radius: 20px;
   font-size: 11px;
-  padding: 4px 12px;
+  padding: 5px 14px;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .deferred-bulk-btn {
@@ -1252,6 +1256,49 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   font-style: italic;
   padding: 24px 0;
   text-align: center;
+}
+
+/* ---- Collapse toggle ---- */
+.deferred-collapse-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.deferred-collapse-btn:hover { opacity: 1; }
+
+.deferred-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+/* Collapsed: shrink column to header width, give space back to open tabs */
+.deferred-column.collapsed {
+  width: auto;
+  min-width: 0;
+}
+
+.deferred-column.collapsed .section-line {
+  display: none;
+}
+
+.deferred-column.collapsed .deferred-chevron {
+  transform: rotate(-90deg);
+}
+
+.deferred-column.collapsed .deferred-list,
+.deferred-column.collapsed .deferred-empty,
+.deferred-column.collapsed .deferred-bulk-actions,
+.deferred-column.collapsed .bookmarks-section {
+  display: none !important;
 }
 
 /* ================================================================
