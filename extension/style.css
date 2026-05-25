@@ -675,6 +675,34 @@ header {
 }
 
 /* ---- Toast notification ---- */
+/* ---- Icon tooltips ---- */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 200;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
 .toast {
   position: fixed;
   bottom: 32px;

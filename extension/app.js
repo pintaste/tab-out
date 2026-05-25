@@ -2307,7 +2307,9 @@ async function initAutoRefresh() {
 function updateAutoRefreshUI() {
   const btn = document.getElementById('autoRefreshToggle');
   if (!btn) return;
-  btn.title = _autoRefreshEnabled ? 'Auto-refresh on' : 'Auto-refresh off';
+  const label = _autoRefreshEnabled ? 'Auto-refresh on' : 'Auto-refresh off';
+  btn.title = label;
+  btn.dataset.tooltip = label;
   btn.classList.toggle('auto-refresh-disabled', !_autoRefreshEnabled);
 }
 
