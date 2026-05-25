@@ -1021,11 +1021,13 @@ function renderDomainCard(group) {
  * and completed items in a collapsible archive.
  */
 async function renderDeferredColumn() {
-  const column      = document.getElementById('deferredColumn');
-  const list        = document.getElementById('deferredList');
-  const empty       = document.getElementById('deferredEmpty');
-  const countEl     = document.getElementById('deferredCount');
-  const bulkActions = document.getElementById('deferredBulkActions');
+  const column       = document.getElementById('deferredColumn');
+  const list         = document.getElementById('deferredList');
+  const empty        = document.getElementById('deferredEmpty');
+  const countEl      = document.getElementById('deferredCount');
+  const bulkActions  = document.getElementById('deferredBulkActions');
+  const closeAllBtn  = document.getElementById('deferredCloseAll');
+  const closeAllCnt  = document.getElementById('deferredCloseAllCount');
 
   if (!column) return;
 
@@ -1045,11 +1047,14 @@ async function renderDeferredColumn() {
       list.innerHTML = tabs.map(item => renderDeferredItem(item)).join('');
       list.style.display = 'block';
       empty.style.display = 'none';
+      if (closeAllBtn) closeAllBtn.style.display = '';
+      if (closeAllCnt) closeAllCnt.textContent = `${tabs.length} tab${tabs.length !== 1 ? 's' : ''}`;
       if (bulkActions) bulkActions.style.display = 'block';
     } else {
       list.style.display = 'none';
       countEl.textContent = '';
       empty.style.display = 'block';
+      if (closeAllBtn) closeAllBtn.style.display = 'none';
       if (bulkActions) bulkActions.style.display = 'none';
     }
   } catch (err) {
@@ -1830,8 +1835,8 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  // ---- Clear all saved tabs ----
-  if (action === 'clear-all-deferred') {
+  // ---- Close all saved tabs ----
+  if (action === 'close-all-deferred') {
     await clearAllDeferred();
     await renderDeferredColumn();
     return;
@@ -2040,12 +2045,12 @@ document.addEventListener('click', async (e) => {
 });
 
 
-// ---- Deferred item selection — show/hide selected-action row ----
+// ---- Deferred item selection — show/hide Open selected button ----
 document.addEventListener('change', (e) => {
   if (!e.target.classList.contains('deferred-select')) return;
   const hasSelection = document.querySelectorAll('.deferred-select:checked').length > 0;
-  const rowSelected = document.getElementById('bulkRowSelected');
-  if (rowSelected) rowSelected.style.display = hasSelection ? 'flex' : 'none';
+  const openSelectedBtn = document.getElementById('openSelectedBtn');
+  if (openSelectedBtn) openSelectedBtn.style.display = hasSelection ? '' : 'none';
 });
 
 // ---- Quick-access input handlers ----

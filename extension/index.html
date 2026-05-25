@@ -143,14 +143,14 @@
       </div>
 
       <div class="deferred-bulk-actions" id="deferredBulkActions" style="display:none">
-        <div class="deferred-bulk-row" id="bulkRowAll">
+        <div class="deferred-bulk-left">
           <button class="deferred-bulk-btn" data-action="open-all-deferred">Open all</button>
-          <button class="deferred-bulk-btn deferred-bulk-btn--danger" data-action="clear-all-deferred">Clear all</button>
+          <button class="deferred-bulk-btn" id="openSelectedBtn" data-action="open-selected-deferred" style="display:none">Open selected</button>
         </div>
-        <div class="deferred-bulk-row" id="bulkRowSelected" style="display:none">
-          <button class="deferred-bulk-btn" id="openSelectedBtn" data-action="open-selected-deferred">Open selected</button>
-          <button class="deferred-bulk-btn deferred-bulk-btn--danger" id="closeSelectedBtn" data-action="close-selected-deferred">Close selected</button>
-        </div>
+        <button class="action-btn close-tabs deferred-remove-btn" id="deferredCloseAll" data-action="close-all-deferred">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+          Remove <span id="deferredCloseAllCount"></span>
+        </button>
       </div>
 
       <!-- Bookmarks section -->

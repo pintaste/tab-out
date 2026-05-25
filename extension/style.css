@@ -1192,18 +1192,23 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 /* ---- Bulk actions ---- */
 .deferred-bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--warm-gray);
 }
 
-.deferred-bulk-row {
+.deferred-bulk-left {
   display: flex;
   gap: 6px;
 }
 
-.deferred-bulk-row + .deferred-bulk-row {
-  margin-top: 6px;
+.deferred-remove-btn {
+  border-radius: 20px;
+  font-size: 11px;
+  padding: 4px 12px;
 }
 
 .deferred-bulk-btn {
