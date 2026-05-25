@@ -1156,6 +1156,115 @@ async function renderQuickAccess() {
       img.style.display = 'none';
     });
   });
+  setupQuickAccessDnd(host, shortcuts);
+}
+
+function setupQuickAccessDnd(host, shortcuts) {
+  const SEL = '.page-chip[data-shortcut-id], .qa-bar-btn[data-shortcut-id]';
+  const THRESHOLD = 6;
+
+  let startEl = null, dragEl = null, ghost = null;
+  let dragId = null, overEl = null;
+  let startX = 0, startY = 0, offsetX = 0, offsetY = 0;
+  let isDragging = false;
+
+  host.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const el = e.target.closest(SEL);
+    if (!el) return;
+    if (e.target.closest('[data-action="remove-shortcut"]')) return;
+
+    startEl = el;
+    dragId  = el.dataset.shortcutId;
+    startX  = e.clientX;
+    startY  = e.clientY;
+    const rect = el.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup',   onUp);
+    document.addEventListener('pointercancel', cleanup);
+  });
+
+  function beginDrag() {
+    dragEl = startEl;
+    const rect = dragEl.getBoundingClientRect();
+
+    ghost = dragEl.cloneNode(true);
+    Object.assign(ghost.style, {
+      position:      'fixed',
+      left:          rect.left + 'px',
+      top:           rect.top  + 'px',
+      width:         rect.width  + 'px',
+      height:        rect.height + 'px',
+      margin:        '0',
+      pointerEvents: 'none',
+      zIndex:        '999',
+      opacity:       '0.92',
+      transform:     'scale(1)',
+      transition:    'transform 0.15s ease, box-shadow 0.15s ease',
+    });
+    document.body.appendChild(ghost);
+    requestAnimationFrame(() => {
+      if (!ghost) return;
+      ghost.style.transform  = 'scale(1.07)';
+      ghost.style.boxShadow  = '0 10px 30px rgba(0,0,0,0.22)';
+    });
+
+    dragEl.classList.add('qa-dragging');
+    document.body.style.userSelect = 'none';
+    isDragging = true;
+  }
+
+  function onMove(e) {
+    if (!startEl) return;
+    if (!isDragging) {
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) < THRESHOLD) return;
+      beginDrag();
+    }
+
+    ghost.style.left = (e.clientX - offsetX) + 'px';
+    ghost.style.top  = (e.clientY - offsetY) + 'px';
+
+    const under    = document.elementFromPoint(e.clientX, e.clientY);
+    const newOver  = under?.closest(SEL);
+    const candidate = (newOver && newOver !== dragEl) ? newOver : null;
+
+    if (candidate !== overEl) {
+      if (overEl) overEl.classList.remove('qa-drag-over');
+      overEl = candidate;
+      if (overEl) overEl.classList.add('qa-drag-over');
+    }
+  }
+
+  async function onUp() {
+    if (!isDragging) { cleanup(); return; }
+
+    const dropTarget  = overEl;
+    const savedDragId = dragId;
+    cleanup();
+
+    if (!dropTarget) return;
+    const arr  = [...shortcuts];
+    const from = arr.findIndex(s => s.id === savedDragId);
+    const to   = arr.findIndex(s => s.id === dropTarget.dataset.shortcutId);
+    if (from === -1 || to === -1) return;
+    arr.splice(to, 0, arr.splice(from, 1)[0]);
+    await chrome.storage.local.set({ quickAccess: arr });
+    await renderQuickAccess();
+  }
+
+  function cleanup() {
+    if (ghost)  { ghost.remove(); ghost = null; }
+    if (dragEl) { dragEl.classList.remove('qa-dragging'); dragEl = null; }
+    if (overEl) { overEl.classList.remove('qa-drag-over'); overEl = null; }
+    document.body.style.userSelect = '';
+    startEl = null; dragId = null; isDragging = false;
+    document.removeEventListener('pointermove',  onMove);
+    document.removeEventListener('pointerup',    onUp);
+    document.removeEventListener('pointercancel', cleanup);
+  }
 }
 
 function renderQuickAccessCardHTML(shortcuts) {
@@ -1163,7 +1272,7 @@ function renderQuickAccessCardHTML(shortcuts) {
     const { primary, fallback } = quickAccessFaviconUrls(s.url);
     const safeUrl = (s.url || '').replace(/"/g, '&quot;');
     const safeLabel = (s.label || '').replace(/"/g, '&quot;');
-    return '<div class="page-chip clickable" data-action="open-shortcut" data-shortcut-url="' + safeUrl + '" title="' + safeLabel + '">' +
+    return '<div class="page-chip clickable" data-action="open-shortcut" data-shortcut-url="' + safeUrl + '" data-shortcut-id="' + s.id + '" data-tooltip="' + safeLabel + '">' +
       (primary ? '<img class="chip-favicon qa-favicon" src="' + primary + '" data-fallback-src="' + fallback.replace(/"/g, '&quot;') + '" alt="">' : '') +
       '<span class="chip-text">' + safeLabel + '</span>' +
       '<div class="chip-actions"><button class="chip-action chip-close" data-action="remove-shortcut" data-shortcut-id="' + s.id + '" title="Remove shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button></div></div>';
@@ -1176,7 +1285,7 @@ function renderQuickAccessBarHTML(shortcuts) {
     const { primary, fallback } = quickAccessFaviconUrls(s.url);
     const safeUrl = (s.url || '').replace(/"/g, '&quot;');
     const safeLabel = (s.label || '').replace(/"/g, '&quot;');
-    return '<button class="qa-bar-btn" data-action="open-shortcut" data-shortcut-url="' + safeUrl + '" title="' + safeLabel + '">' +
+    return '<button class="qa-bar-btn" data-action="open-shortcut" data-shortcut-url="' + safeUrl + '" data-shortcut-id="' + s.id + '" data-tooltip="' + safeLabel + '">' +
       (primary ? '<img class="qa-favicon" src="' + primary + '" data-fallback-src="' + fallback.replace(/"/g, '&quot;') + '" alt="">' : '') +
       '<span class="qa-bar-initial"' + (primary ? ' hidden' : '') + '>' + (safeLabel.charAt(0) || '?').toUpperCase() + '</span>' +
       '<span class="qa-bar-remove" data-action="remove-shortcut" data-shortcut-id="' + s.id + '" title="Remove shortcut"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></span></button>';

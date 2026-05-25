@@ -1484,6 +1484,27 @@ body.privacy-mode .privacy-screen { display: flex !important; }
   to   { transform: rotate(360deg); }
 }
 
+/* ---- Quick Access drag-and-drop ---- */
+.page-chip[data-shortcut-id],
+.qa-bar-btn[data-shortcut-id] {
+  transition: box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.qa-dragging {
+  opacity: 0.2;
+  border-style: dashed !important;
+}
+
+.page-chip.qa-drag-over {
+  box-shadow: 0 0 0 2px var(--accent-amber);
+  transform: scale(1.03);
+}
+
+.qa-bar-btn.qa-drag-over {
+  box-shadow: 0 0 0 2px var(--accent-amber);
+  background: rgba(200, 113, 58, 0.08);
+}
+
 body.no-entrance-anim header,
 body.no-entrance-anim .tab-cleanup-banner,
 body.no-entrance-anim .privacy-screen,
