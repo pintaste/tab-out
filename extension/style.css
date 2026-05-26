@@ -1015,6 +1015,42 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
    SAVED FOR LATER — Checklist Column + Archive
    ================================================================ */
 
+/* Top row: Quick access + Saved for later side by side */
+.top-panels {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 32px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+#quickAccessContainer {
+  grid-column: span 1;
+  min-width: 0;
+}
+
+#quickAccessContainer[data-mode="bar"] {
+  grid-column: 1 / -1;
+}
+
+#topPanels .deferred-column {
+  grid-column: 1 / -1;
+}
+
+/* Override generic .missions column layout for Quick access card mode */
+#quickAccessContainer .qa-card-wrap {
+  columns: auto;
+  margin-bottom: 0;
+}
+
+#quickAccessContainer .qa-card-wrap .mission-card {
+  margin-bottom: 0;
+}
+
+#quickAccessContainer .qa-bar {
+  margin-bottom: 0;
+}
+
 /* ---- Two-column layout ---- */
 .dashboard-columns {
   display: flex;
@@ -1036,7 +1072,10 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   padding: 16px 18px;
   position: relative;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 
 .deferred-column::before {
@@ -1047,12 +1086,19 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   background: var(--warm-gray);
 }
 
+.deferred-column:hover {
+  box-shadow: 0 4px 20px var(--shadow);
+  transform: translateY(-1px);
+}
+
 /* Header — match mission-top style, entire row is clickable */
 .deferred-column .section-header {
   gap: 10px;
-  margin-bottom: 8px;
+  margin-top: 0;
+  margin-bottom: 6px;
   cursor: pointer;
   user-select: none;
+  align-items: center;
 }
 
 .deferred-column .section-header h2 {
@@ -1063,6 +1109,10 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   color: var(--ink);
   letter-spacing: -0.2px;
   white-space: nowrap;
+}
+
+.deferred-column .section-line {
+  display: none;
 }
 
 /* Count badge — amber pill matching open-tabs-badge */
@@ -1077,9 +1127,82 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   padding: 2px 8px;
   border-radius: 3px;
   letter-spacing: 0;
+  margin-left: auto;
+}
+
+.deferred-group-btn {
+  border: 1px solid var(--warm-gray);
+  background: var(--card-bg);
+  color: var(--muted);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.deferred-group-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.deferred-group-btn.is-active {
+  color: var(--accent-amber);
+  border-color: rgba(200, 113, 58, 0.35);
+  background: rgba(200, 113, 58, 0.06);
+}
+
+#deferredGroupCollapseAllBtn {
+  min-width: 54px;
+  height: 26px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+#deferredGroupCollapseAllBtn svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+#deferredGroupCollapseAllBtn .deferred-collapse-all-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1;
+}
+
+#deferredGroupCollapseAllBtn .expand-all-icon {
+  display: none;
+}
+
+#deferredGroupCollapseAllBtn.is-all-collapsed .collapse-all-icon {
+  display: none;
+}
+
+#deferredGroupCollapseAllBtn.is-all-collapsed .expand-all-icon {
+  display: block;
 }
 
 @media (max-width: 800px) {
+  .top-panels {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  #quickAccessContainer {
+    width: 100%;
+  }
+
+  #topPanels .deferred-column {
+    grid-column: auto;
+  }
+
   .dashboard-columns {
     flex-direction: column;
   }
@@ -1087,13 +1210,156 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 /* ---- Saved for later items — reuse page-chip rows ---- */
 .deferred-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.deferred-list.deferred-list--multi {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   column-gap: 24px;
+}
+
+.deferred-list.deferred-list--grouped {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.deferred-group {
+  border: 1px solid rgba(154, 145, 138, 0.2);
+  border-radius: 8px;
+  background: rgba(248, 245, 240, 0.55);
+  padding: 8px 10px 4px;
+}
+
+.deferred-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0 8px;
+  border-bottom: 1px dashed rgba(154, 145, 138, 0.28);
+  cursor: pointer;
+}
+
+.deferred-group-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.deferred-group-collapse-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.deferred-group-collapse-btn:hover {
+  color: var(--ink);
+  background: rgba(154, 145, 138, 0.1);
+}
+
+.deferred-group-chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+}
+
+.deferred-group.is-collapsed .deferred-group-chevron {
+  transform: rotate(-90deg);
+}
+
+.deferred-group.is-collapsed .deferred-group-items {
+  display: none;
+}
+
+.deferred-group-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deferred-group-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.deferred-group-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: rgba(154, 145, 138, 0.12);
+  border-radius: 4px;
+  padding: 3px 7px;
+}
+
+.deferred-group-action-btn {
+  border: 1px solid var(--warm-gray);
+  background: var(--card-bg);
+  color: var(--muted);
+  border-radius: 6px;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deferred-group-action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.deferred-group-action-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.deferred-group-action-btn.is-danger {
+  border: 1px solid rgba(200, 113, 58, 0.3);
+  background: rgba(200, 113, 58, 0.04);
+  color: var(--accent-amber);
+}
+
+.deferred-group-action-btn.is-danger:hover {
+  border-color: var(--accent-amber);
+  background: rgba(200, 113, 58, 0.1);
+}
+
+.deferred-group-items .deferred-item:last-child {
+  border-bottom: none;
 }
 
 .deferred-item {
   animation: fadeUp 0.3s ease both;
+}
+
+@media (max-width: 800px) {
+  .deferred-list.deferred-list--multi {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---- Selection checkbox ---- */
@@ -1120,30 +1386,57 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 /* ---- Bulk actions ---- */
 .deferred-bulk-actions {
   display: flex;
-  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--warm-gray);
 }
 
 .deferred-remove-btn {
-  border-radius: 20px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
 .deferred-bulk-btn {
-  background: none;
+  background: var(--card-bg);
   border: 1px solid var(--warm-gray);
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--muted);
   font-size: 11px;
+  font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
   font-weight: 500;
-  padding: 5px 8px;
+  padding: 5px 14px;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, opacity 0.15s;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+}
+
+.deferred-bulk-actions .deferred-bulk-btn,
+.deferred-bulk-actions .deferred-remove-btn {
+  height: 32px;
+  min-height: 32px;
+  box-sizing: border-box;
+  align-self: center;
+  margin: 0;
+  padding: 5px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  line-height: 1;
+  vertical-align: middle;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.deferred-bulk-actions .deferred-bulk-btn {
+  width: auto;
 }
 
 .deferred-bulk-btn:not(:disabled):hover {

@@ -241,8 +241,12 @@ async function closeTabOutDupes() {
  */
 async function saveTabForLater(tab) {
   const { deferred = [] } = await chrome.storage.local.get('deferred');
+  const deferredId =
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   deferred.push({
-    id:        Date.now().toString(),
+    id:        deferredId,
     url:       tab.url,
     title:     tab.title,
     savedAt:   new Date().toISOString(),
@@ -255,6 +259,45 @@ async function saveTabForLater(tab) {
 async function getSavedTabs() {
   const { deferred = [] } = await chrome.storage.local.get('deferred');
   return deferred.filter(t => !t.dismissed);
+}
+
+const DEFERRED_GROUP_STORAGE_KEY = 'deferredGroupedByDomain';
+const DEFERRED_GROUP_COLLAPSE_STORAGE_KEY = 'deferredCollapsedGroupKeys';
+
+function isDeferredGroupedByDomain() {
+  return localStorage.getItem(DEFERRED_GROUP_STORAGE_KEY) === '1';
+}
+
+function setDeferredGroupedByDomain(enabled) {
+  localStorage.setItem(DEFERRED_GROUP_STORAGE_KEY, enabled ? '1' : '0');
+}
+
+function getDeferredCollapsedGroups() {
+  try {
+    const raw = localStorage.getItem(DEFERRED_GROUP_COLLAPSE_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter(v => typeof v === 'string' && v.length > 0));
+  } catch {
+    return new Set();
+  }
+}
+
+function setDeferredCollapsedGroups(groups) {
+  localStorage.setItem(DEFERRED_GROUP_COLLAPSE_STORAGE_KEY, JSON.stringify([...groups]));
+}
+
+function getDeferredGroupMeta(url) {
+  try {
+    const parsed = new URL(url || '');
+    if (parsed.protocol === 'file:') return { key: 'local-files', label: 'Local Files' };
+    const host = (parsed.hostname || '').toLowerCase();
+    if (!host) return { key: '__other__', label: 'Other' };
+    return { key: host, label: friendlyDomain(host) || host.replace(/^www\./, '') };
+  } catch {
+    return { key: '__other__', label: 'Other' };
+  }
 }
 
 async function getBookmarks() {
@@ -282,9 +325,40 @@ async function clearAllDeferred() {
 
 async function openAllDeferred() {
   const tabs = await getSavedTabs();
+  let openedCount = 0;
   for (const tab of tabs) {
-    try { await chrome.tabs.create({ url: tab.url, active: false }); } catch {}
+    try {
+      await chrome.tabs.create({ url: tab.url, active: false });
+      await dismissSavedTab(tab.id);
+      openedCount += 1;
+    } catch {}
   }
+  return openedCount;
+}
+
+async function openDeferredGroup(groupKey) {
+  if (!groupKey) return 0;
+  const tabs = await getSavedTabs();
+  const groupedTabs = tabs.filter(tab => getDeferredGroupMeta(tab.url).key === groupKey);
+  let openedCount = 0;
+  for (const tab of groupedTabs) {
+    try {
+      await chrome.tabs.create({ url: tab.url, active: false });
+      await dismissSavedTab(tab.id);
+      openedCount += 1;
+    } catch {}
+  }
+  return openedCount;
+}
+
+async function closeDeferredGroup(groupKey) {
+  if (!groupKey) return 0;
+  const tabs = await getSavedTabs();
+  const groupedTabs = tabs.filter(tab => getDeferredGroupMeta(tab.url).key === groupKey);
+  for (const tab of groupedTabs) {
+    await dismissSavedTab(tab.id);
+  }
+  return groupedTabs.length;
 }
 
 /* ----------------------------------------------------------------
@@ -1025,13 +1099,24 @@ async function renderDeferredColumn() {
   const list         = document.getElementById('deferredList');
   const empty        = document.getElementById('deferredEmpty');
   const countEl      = document.getElementById('deferredCount');
+  const groupBtn     = document.getElementById('deferredGroupToggle');
+  const groupCollapseAllBtn = document.getElementById('deferredGroupCollapseAllBtn');
   const bulkActions  = document.getElementById('deferredBulkActions');
+  const selectAllBtn = document.getElementById('deferredSelectAll');
   const closeAllBtn  = document.getElementById('deferredCloseAll');
   const closeAllCnt  = document.getElementById('deferredCloseAllCount');
 
   if (!column) return;
 
   try {
+    const groupedByDomain = isDeferredGroupedByDomain();
+    if (groupBtn) {
+      groupBtn.textContent = groupedByDomain ? 'Grouped' : 'Group';
+      groupBtn.setAttribute('aria-pressed', groupedByDomain ? 'true' : 'false');
+      groupBtn.title = groupedByDomain ? 'Disable grouped sorting' : 'Enable grouped sorting';
+      groupBtn.classList.toggle('is-active', groupedByDomain);
+    }
+
     const allTabs = await getSavedTabs();
 
     // Auto-dismiss items whose URL is already open in Chrome
@@ -1044,16 +1129,39 @@ async function renderDeferredColumn() {
     if (tabs.length > 0) {
       column.style.display = 'block';
       countEl.textContent = `${tabs.length} item${tabs.length !== 1 ? 's' : ''}`;
-      list.innerHTML = tabs.map(item => renderDeferredItem(item)).join('');
+      if (groupCollapseAllBtn) {
+        if (groupedByDomain) {
+          const groupKeys = [...new Set(tabs.map(tab => getDeferredGroupMeta(tab.url).key))];
+          const collapsedGroups = getDeferredCollapsedGroups();
+          const allCollapsed = groupKeys.length > 0 && groupKeys.every(key => collapsedGroups.has(key));
+          groupCollapseAllBtn.style.display = '';
+          groupCollapseAllBtn.classList.toggle('is-all-collapsed', allCollapsed);
+          groupCollapseAllBtn.title = allCollapsed ? 'Expand all groups' : 'Collapse all groups';
+          groupCollapseAllBtn.setAttribute('aria-label', allCollapsed ? 'Expand all groups' : 'Collapse all groups');
+        } else {
+          groupCollapseAllBtn.style.display = 'none';
+        }
+      }
+      list.classList.toggle('deferred-list--multi', !groupedByDomain && tabs.length >= 8);
+      list.classList.toggle('deferred-list--grouped', groupedByDomain);
+      list.innerHTML = groupedByDomain
+        ? renderDeferredGroupedList(tabs)
+        : tabs.map(item => renderDeferredItem(item)).join('');
       list.style.display = 'block';
       empty.style.display = 'none';
+      if (selectAllBtn) selectAllBtn.style.display = '';
       if (closeAllBtn) closeAllBtn.style.display = '';
       if (closeAllCnt) closeAllCnt.textContent = `${tabs.length} tab${tabs.length !== 1 ? 's' : ''}`;
       if (bulkActions) bulkActions.style.display = 'block';
+      syncDeferredSelectionUI();
     } else {
+      list.classList.remove('deferred-list--multi');
+      list.classList.remove('deferred-list--grouped');
       list.style.display = 'none';
       countEl.textContent = '';
+      if (groupCollapseAllBtn) groupCollapseAllBtn.style.display = 'none';
       empty.style.display = 'block';
+      if (selectAllBtn) selectAllBtn.style.display = 'none';
       if (closeAllBtn) closeAllBtn.style.display = 'none';
       if (bulkActions) bulkActions.style.display = 'none';
     }
@@ -1086,6 +1194,47 @@ function renderDeferredItem(item) {
     </div>`;
 }
 
+function renderDeferredGroupedList(tabs) {
+  const groups = new Map();
+  const collapsedGroups = getDeferredCollapsedGroups();
+  for (const tab of tabs) {
+    const { key, label } = getDeferredGroupMeta(tab.url);
+    if (!groups.has(key)) groups.set(key, { key, label, tabs: [] });
+    groups.get(key).tabs.push(tab);
+  }
+
+  const sortedGroups = [...groups.values()].sort((a, b) => {
+    if (b.tabs.length !== a.tabs.length) return b.tabs.length - a.tabs.length;
+    return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+  });
+
+  return sortedGroups.map(group => {
+    const safeLabel = escapeHtml(group.label);
+    const safeKey = escapeHtml(group.key);
+    const isCollapsed = collapsedGroups.has(group.key);
+    return `<div class="deferred-group${isCollapsed ? ' is-collapsed' : ''}">
+      <div class="deferred-group-header" data-action="toggle-deferred-group-collapse" data-group-key="${safeKey}" title="${isCollapsed ? 'Expand group' : 'Collapse group'}">
+        <div class="deferred-group-main">
+          <button class="deferred-group-collapse-btn" data-action="toggle-deferred-group-collapse" data-group-key="${safeKey}" title="${isCollapsed ? 'Expand group' : 'Collapse group'}" aria-expanded="${isCollapsed ? 'false' : 'true'}">
+            <svg class="deferred-group-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+          </button>
+          <span class="deferred-group-name">${safeLabel}</span>
+        </div>
+        <div class="deferred-group-meta">
+          <span class="deferred-group-count">${group.tabs.length}</span>
+          <button class="deferred-group-action-btn" data-action="open-deferred-group" data-group-key="${safeKey}" title="Open all tabs in this group" aria-label="Open all tabs in ${safeLabel}">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+          </button>
+          <button class="deferred-group-action-btn is-danger" data-action="close-deferred-group" data-group-key="${safeKey}" title="Remove all tabs in this group" aria-label="Remove all tabs in ${safeLabel}">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      </div>
+      <div class="deferred-group-items">${group.tabs.map(item => renderDeferredItem(item)).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
 
 /* ----------------------------------------------------------------
    QUICK ACCESS — Renderer
@@ -1106,8 +1255,13 @@ async function renderQuickAccess() {
   const host = document.getElementById('quickAccessContainer');
   if (!host) return;
   const shortcuts = await getQuickAccess();
-  if (shortcuts.length === 0) { host.style.display = 'none'; return; }
+  if (shortcuts.length === 0) {
+    host.style.display = 'none';
+    host.removeAttribute('data-mode');
+    return;
+  }
   const mode = await getQuickAccessMode();
+  host.dataset.mode = mode;
   host.innerHTML = mode === 'bar' ? renderQuickAccessBarHTML(shortcuts) : renderQuickAccessCardHTML(shortcuts);
   host.style.display = 'block';
   host.querySelectorAll('.qa-favicon').forEach(img => {
@@ -1522,13 +1676,17 @@ async function renderStaticDashboard() {
       ? ` <button class="action-btn save-tabs" data-action="merge-windows" style="font-size:11px;padding:3px 10px;">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" /></svg>
           Merge ${winCount} windows</button>` : '';
+    const saveAllBtn = realTabs.length > 0
+      ? ` &nbsp;&middot;&nbsp; <button class="action-btn save-tabs" data-action="save-all-open-tabs" style="font-size:11px;padding:3px 10px;">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
+          Save all ${realTabs.length} tabs</button>` : '';
     const showWinToggle = winCount > 1
       ? ` <button class="action-btn${showWindowLabels ? ' primary' : ''}" data-action="toggle-window-labels" style="font-size:11px;padding:3px 10px;">
           ${showWindowLabels ? 'Hide' : 'Show'} windows</button>` : '';
     const groupByWinToggle = winCount > 1
       ? ` <button class="action-btn${groupByWindow ? ' primary' : ''}" data-action="toggle-group-by-window" style="font-size:11px;padding:3px 10px;">
           Group by ${groupByWindow ? 'domain' : 'window'}</button>` : '';
-    openTabsSectionCount.innerHTML = `${domainGroups.length} domain${domainGroups.length !== 1 ? 's' : ''}${winCount > 1 ? ` &middot; ${winCount} windows` : ''} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} Close all ${realTabs.length} tabs</button>${mergeBtn}${groupByWinToggle}${showWinToggle}`;
+    openTabsSectionCount.innerHTML = `${domainGroups.length} domain${domainGroups.length !== 1 ? 's' : ''}${winCount > 1 ? ` &middot; ${winCount} windows` : ''}${saveAllBtn} &nbsp;&middot;&nbsp; <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} Close all ${realTabs.length} tabs</button>${mergeBtn}${groupByWinToggle}${showWinToggle}`;
 
     if (groupByWindow && winCount > 1) {
       const windowSections = buildWindowGroups(domainGroups);
@@ -1814,7 +1972,7 @@ document.addEventListener('click', async (e) => {
     const url = actionEl.dataset.deferredUrl;
     const id  = actionEl.dataset.deferredId;
     if (url) {
-      try { await chrome.tabs.create({ url, active: true }); } catch {}
+      try { await chrome.tabs.create({ url, active: false }); } catch {}
       await dismissSavedTab(id);
       const item = actionEl.closest('.deferred-item');
       if (item) {
@@ -1827,7 +1985,9 @@ document.addEventListener('click', async (e) => {
 
   // ---- Open all saved tabs ----
   if (action === 'open-all-deferred') {
-    await openAllDeferred();
+    const opened = await openAllDeferred();
+    if (opened > 0) showToast(`Opened ${opened} tab${opened !== 1 ? 's' : ''}`);
+    await renderDeferredColumn();
     return;
   }
 
@@ -1850,10 +2010,75 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  // ---- Select/Clear all in Saved for later (non-grouped view) ----
+  if (action === 'toggle-select-all-deferred') {
+    const boxes = [...document.querySelectorAll('#deferredList .deferred-select')];
+    if (boxes.length === 0) return;
+    const allSelected = boxes.every(cb => cb.checked);
+    boxes.forEach(cb => { cb.checked = !allSelected; });
+    syncDeferredSelectionUI();
+    return;
+  }
+
+  // ---- Collapse/expand all Saved for later groups ----
+  if (action === 'toggle-deferred-groups-collapse-all') {
+    const groupKeys = [...new Set(
+      [...document.querySelectorAll('#deferredList .deferred-group-collapse-btn')]
+        .map(btn => btn.dataset.groupKey)
+        .filter(Boolean)
+    )];
+    if (groupKeys.length === 0) return;
+    const collapsedGroups = getDeferredCollapsedGroups();
+    const allCollapsed = groupKeys.every(key => collapsedGroups.has(key));
+    if (allCollapsed) groupKeys.forEach(key => collapsedGroups.delete(key));
+    else groupKeys.forEach(key => collapsedGroups.add(key));
+    setDeferredCollapsedGroups(collapsedGroups);
+    await renderDeferredColumn();
+    return;
+  }
+
+  // ---- Collapse/expand one Saved for later group ----
+  if (action === 'toggle-deferred-group-collapse') {
+    const groupKey = actionEl.dataset.groupKey;
+    if (!groupKey) return;
+    const collapsedGroups = getDeferredCollapsedGroups();
+    if (collapsedGroups.has(groupKey)) collapsedGroups.delete(groupKey);
+    else collapsedGroups.add(groupKey);
+    setDeferredCollapsedGroups(collapsedGroups);
+    await renderDeferredColumn();
+    return;
+  }
+
+  // ---- Open all tabs in one Saved for later group ----
+  if (action === 'open-deferred-group') {
+    const groupKey = actionEl.dataset.groupKey;
+    const opened = await openDeferredGroup(groupKey);
+    if (opened > 0) showToast(`Opened ${opened} tab${opened !== 1 ? 's' : ''}`);
+    await renderDeferredColumn();
+    return;
+  }
+
+  // ---- Close all tabs in one Saved for later group ----
+  if (action === 'close-deferred-group') {
+    const groupKey = actionEl.dataset.groupKey;
+    const closed = await closeDeferredGroup(groupKey);
+    if (closed > 0) showToast(`Removed ${closed} tab${closed !== 1 ? 's' : ''}`);
+    await renderDeferredColumn();
+    return;
+  }
+
   // ---- Close (dismiss) selected saved tabs ----
   if (action === 'close-selected-deferred') {
     const ids = [...document.querySelectorAll('.deferred-select:checked')].map(cb => cb.dataset.deferredId);
     for (const id of ids) await dismissSavedTab(id);
+    await renderDeferredColumn();
+    return;
+  }
+
+  // ---- Toggle grouped sorting in Saved for later ----
+  if (action === 'toggle-deferred-grouping') {
+    e.stopPropagation();
+    setDeferredGroupedByDomain(!isDeferredGroupedByDomain());
     await renderDeferredColumn();
     return;
   }
@@ -2018,6 +2243,24 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  // ---- Save ALL open tabs for later (and close them) ----
+  if (action === 'save-all-open-tabs') {
+    const tabsToSave = getRealTabs().filter(t => t.url);
+    if (tabsToSave.length === 0) return;
+
+    for (const tab of tabsToSave) {
+      await saveTabForLater({ url: tab.url, title: tab.title || tab.url });
+    }
+
+    const urls = tabsToSave.map(t => t.url);
+    captureClosedTabs(urls);
+    await closeTabsExact(urls);
+    playCloseSound();
+    showToast(`Saved ${tabsToSave.length} tab${tabsToSave.length !== 1 ? 's' : ''} for later`, { undo: true });
+    await renderDashboard();
+    return;
+  }
+
   // ---- Close ALL open tabs ----
   if (action === 'close-all-open-tabs') {
     const allUrls = openTabs
@@ -2044,13 +2287,24 @@ document.addEventListener('click', async (e) => {
 // ---- Deferred item selection — toggle open button label/action ----
 document.addEventListener('change', (e) => {
   if (!e.target.classList.contains('deferred-select')) return;
-  const hasSelection = document.querySelectorAll('.deferred-select:checked').length > 0;
+  syncDeferredSelectionUI();
+});
+
+function syncDeferredSelectionUI() {
+  const boxes = [...document.querySelectorAll('#deferredList .deferred-select')];
+  const checkedCount = boxes.filter(cb => cb.checked).length;
+  const hasSelection = checkedCount > 0;
+  const allSelected = boxes.length > 0 && checkedCount === boxes.length;
   const openBtn = document.getElementById('openDeferredBtn');
   if (openBtn) {
     openBtn.textContent = hasSelection ? 'Open selected' : 'Open all';
     openBtn.dataset.action = hasSelection ? 'open-selected-deferred' : 'open-all-deferred';
   }
-});
+  const selectAllBtn = document.getElementById('deferredSelectAll');
+  if (selectAllBtn && selectAllBtn.style.display !== 'none') {
+    selectAllBtn.textContent = allSelected ? 'Clear selection' : 'Select all';
+  }
+}
 
 // ---- Saved for later collapse toggle — click anywhere in header ----
 (function initDeferredCollapse() {
@@ -2059,7 +2313,8 @@ document.addEventListener('change', (e) => {
   const btn = document.getElementById('deferredCollapseBtn');
   if (!col || !header) return;
   if (localStorage.getItem('deferredCollapsed') === '1') col.classList.add('collapsed');
-  header.addEventListener('click', () => {
+  header.addEventListener('click', (e) => {
+    if (e.target.closest('.deferred-header-action')) return;
     const collapsed = col.classList.toggle('collapsed');
     localStorage.setItem('deferredCollapsed', collapsed ? '1' : '0');
     if (btn) btn.title = collapsed ? 'Expand' : 'Collapse';

@@ -98,14 +98,23 @@
     <button class="tab-cleanup-btn" data-action="close-tabout-dupes">Close extras</button>
   </div>
 
-  <div id="quickAccessContainer" style="display:none"></div>
+  <div class="top-panels" id="topPanels">
+    <div id="quickAccessContainer" style="display:none"></div>
 
-  <!-- Saved for Later — below Quick Access, above open tabs -->
-  <div class="deferred-column" id="deferredColumn" style="display:none">
+    <!-- Saved for Later — aligned with Quick Access -->
+    <div class="deferred-column" id="deferredColumn" style="display:none">
     <div class="section-header">
       <h2>Saved for later</h2>
       <div class="section-line"></div>
       <div class="section-count" id="deferredCount"></div>
+      <button class="deferred-group-btn deferred-header-action" id="deferredGroupToggle" data-action="toggle-deferred-grouping" title="Enable grouped sorting" aria-pressed="false">
+        Group
+      </button>
+      <button class="deferred-group-btn deferred-header-action" id="deferredGroupCollapseAllBtn" data-action="toggle-deferred-groups-collapse-all" title="Collapse all groups" aria-label="Collapse all groups" style="display:none">
+        <svg class="collapse-all-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 12h13.5"/></svg>
+        <svg class="expand-all-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5.25v13.5M5.25 12h13.5"/></svg>
+        <span class="deferred-collapse-all-label">All</span>
+      </button>
       <button class="deferred-collapse-btn" id="deferredCollapseBtn" title="Collapse">
         <svg class="deferred-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
       </button>
@@ -118,6 +127,7 @@
     </div>
 
     <div class="deferred-bulk-actions" id="deferredBulkActions" style="display:none">
+      <button class="deferred-bulk-btn" id="deferredSelectAll" data-action="toggle-select-all-deferred">Select all</button>
       <button class="deferred-bulk-btn" id="openDeferredBtn" data-action="open-all-deferred">Open all</button>
       <button class="action-btn close-tabs deferred-remove-btn" id="deferredCloseAll" data-action="close-all-deferred">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
@@ -133,6 +143,7 @@
         <div class="section-count" id="bookmarksCount"></div>
       </div>
       <div class="bookmarks-list" id="bookmarksList"></div>
+    </div>
     </div>
   </div>
 
