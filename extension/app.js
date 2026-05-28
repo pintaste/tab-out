@@ -2344,37 +2344,78 @@ document.addEventListener('blur', (e) => {
 
 
 /* ----------------------------------------------------------------
-   THEME — Dark/Light mode toggle with persistence
+   THEME — Light/Dark/Auto mode toggle with persistence
    ---------------------------------------------------------------- */
 
 const THEME_STORAGE_KEY = 'theme';
+const THEME_MODES = ['light', 'dark', 'auto'];
 
 const MOON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>`;
 
 const SUN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" /></svg>`;
 
+const AUTO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 18h15a2.25 2.25 0 0 0 2.25-2.25V8.25A2.25 2.25 0 0 0 19.5 6h-15A2.25 2.25 0 0 0 2.25 8.25v7.5A2.25 2.25 0 0 0 4.5 18Zm6.75-1.5h1.5m4.5 0h-3m-4.5 4.5h3" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 3.75 3 2.25 3-2.25" /></svg>`;
+
 function getSystemTheme() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
+let currentThemeMode = 'auto';
+const systemThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+
+function resolveTheme(themeMode) {
+  return themeMode === 'auto' ? getSystemTheme() : themeMode;
+}
+
+function updateThemeButton(themeMode) {
   const btn = document.getElementById('themeToggle');
-  if (btn) btn.innerHTML = theme === 'dark' ? SUN_ICON : MOON_ICON;
+  if (!btn) return;
+  if (themeMode === 'dark') {
+    btn.innerHTML = SUN_ICON;
+  } else if (themeMode === 'light') {
+    btn.innerHTML = MOON_ICON;
+  } else {
+    btn.innerHTML = AUTO_ICON;
+  }
+  btn.title = `Theme: ${themeMode}`;
+  btn.dataset.tooltip = themeMode === 'auto' ? 'System theme' : `${themeMode[0].toUpperCase()}${themeMode.slice(1)} theme`;
+  btn.setAttribute('aria-label', `Theme mode: ${themeMode}`);
+}
+
+function applyTheme(themeMode) {
+  currentThemeMode = themeMode;
+  document.documentElement.dataset.theme = resolveTheme(themeMode);
+  updateThemeButton(themeMode);
+}
+
+function syncAutoTheme() {
+  if (currentThemeMode === 'auto') applyTheme('auto');
+}
+
+function bindAutoThemeListener() {
+  const handleThemeChange = () => syncAutoTheme();
+  if (systemThemeMedia.addEventListener) {
+    systemThemeMedia.addEventListener('change', handleThemeChange);
+  } else {
+    systemThemeMedia.addListener(handleThemeChange);
+  }
 }
 
 async function initTheme() {
   try {
     const { [THEME_STORAGE_KEY]: saved } = await chrome.storage.local.get(THEME_STORAGE_KEY);
-    applyTheme(saved || getSystemTheme());
+    const mode = THEME_MODES.includes(saved) ? saved : 'auto';
+    applyTheme(mode);
+    bindAutoThemeListener();
   } catch {
-    applyTheme(getSystemTheme());
+    applyTheme('auto');
+    bindAutoThemeListener();
   }
 }
 
 async function toggleTheme() {
-  const current = document.documentElement.dataset.theme || 'light';
-  const next = current === 'dark' ? 'light' : 'dark';
+  const currentIdx = THEME_MODES.indexOf(currentThemeMode);
+  const next = THEME_MODES[(currentIdx + 1) % THEME_MODES.length];
   applyTheme(next);
   try { await chrome.storage.local.set({ [THEME_STORAGE_KEY]: next }); } catch {}
 }
